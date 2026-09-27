@@ -3804,9 +3804,12 @@ td {
     left: 0;
     display: flex;
     width: min(86vw, 310px);
+    max-width: calc(100vw - 20px);
     min-width: 270px;
     flex-direction: column;
-    padding: 18px 14px 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 16px 14px 14px;
     background: #12372a;
     box-shadow: 14px 0 35px rgba(18, 55, 42, 0.18);
     transform: translateX(-105%);
@@ -3827,7 +3830,7 @@ td {
   .mobile-drawer-header {
     justify-content: space-between;
     gap: 12px;
-    padding: 0 4px 18px;
+    padding: 0 4px 14px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   }
 
@@ -3878,8 +3881,8 @@ td {
   .mobile-drawer-nav {
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    margin-top: 18px;
+    gap: 4px;
+    margin-top: 14px;
   }
 
   .mobile-drawer-nav button,
@@ -3887,7 +3890,7 @@ td {
     display: flex;
     align-items: center;
     width: 100%;
-    min-height: 46px;
+    min-height: 44px;
     gap: 12px;
     border-radius: 10px;
     padding: 10px 12px;
@@ -3906,6 +3909,13 @@ td {
 
   .mobile-drawer-nav button.active {
     box-shadow: inset 3px 0 #f4a261;
+  }
+
+  .mobile-drawer-nav button:focus-visible,
+  .mobile-logout-button:focus-visible,
+  .mobile-close-button:focus-visible {
+    outline: 2px solid #f4a261;
+    outline-offset: 2px;
   }
 
   .mobile-nav-icon {
@@ -3963,7 +3973,15 @@ td {
   }
 
   .dashboard-page {
-    gap: 16px;
+    gap: 10px;
+  }
+
+  .dashboard-page > .topbar {
+    gap: 8px;
+  }
+
+  .dashboard-page .topbar p {
+    line-height: 1.35;
   }
 
   .dashboard-summary-grid {
@@ -4195,7 +4213,7 @@ td {
   }
 
   .dashboard-metric-card small {
-    font-size: 8px;
+    font-size: 9px;
   }
 
   .sales-summary-grid,

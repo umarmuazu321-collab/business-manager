@@ -716,6 +716,11 @@ function App() {
     setMobileMenuOpen(false)
   }
 
+  const handleMobileSignOut = async () => {
+    setMobileMenuOpen(false)
+    await handleSignOut()
+  }
+
   const recoverFromDataError = async (error, label) => {
     const message = error?.message || 'Unknown error'
     const isFutureJwtError = /jwt issued at future|token.*future/i.test(
@@ -754,6 +759,9 @@ function App() {
       return undefined
     }
 
+    const previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         setMobileMenuOpen(false)
@@ -761,7 +769,10 @@ function App() {
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = previousBodyOverflow
+    }
   }, [mobileMenuOpen])
 
   useEffect(() => {
@@ -1477,11 +1488,21 @@ function App() {
   const handleAddProduct = async (event) => {
     event.preventDefault()
 
+    const name = formData.name.trim()
+    const category = formData.category.trim()
+    const price = Number(formData.price)
+    const stock = Number(formData.stock)
+
     if (
-      !formData.name ||
-      !formData.category ||
-      !formData.price ||
-      !formData.stock
+      !name ||
+      !category ||
+      formData.price === '' ||
+      formData.stock === '' ||
+      !Number.isFinite(price) ||
+      price < 0 ||
+      !Number.isFinite(stock) ||
+      stock < 0 ||
+      !Number.isInteger(stock)
     ) {
       return
     }
@@ -1489,10 +1510,10 @@ function App() {
     const { data, error } = await supabase
       .from('products')
       .insert({
-        name: formData.name.trim(),
-        category: formData.category.trim(),
-        price: Number(formData.price),
-        stock: Number(formData.stock),
+        name,
+        category,
+        price,
+        stock,
       })
       .select('id, name, category, price, stock')
       .single()
@@ -1555,12 +1576,15 @@ function App() {
     )
 
     const quantity = Number(saleData.quantity)
+    const customer = saleData.customer.trim()
 
     if (
-      !saleData.customer ||
+      !customer ||
       !selectedProduct ||
-      !quantity ||
-      quantity < 1
+      !Number.isFinite(quantity) ||
+      !Number.isInteger(quantity) ||
+      quantity < 1 ||
+      !['Paid', 'Pending'].includes(saleData.status)
     ) {
       return
     }
@@ -1585,7 +1609,7 @@ function App() {
     } = await supabase
       .from('sales')
       .insert({
-        customer: saleData.customer.trim(),
+        customer,
         product: saleProductName,
         amount: saleAmount,
         status: saleData.status,
@@ -1660,10 +1684,14 @@ function App() {
   const handleAddCustomer = async (event) => {
     event.preventDefault()
 
+    const name = customerData.name.trim()
+    const phone = customerData.phone.trim()
+    const address = customerData.address.trim()
+
     if (
-      !customerData.name ||
-      !customerData.phone ||
-      !customerData.address
+      !name ||
+      !phone ||
+      !address
     ) {
       return
     }
@@ -1671,9 +1699,9 @@ function App() {
     const { data, error } = await supabase
       .from('customers')
       .insert({
-        name: customerData.name.trim(),
-        phone: customerData.phone.trim(),
-        address: customerData.address.trim(),
+        name,
+        phone,
+        address,
       })
       .select('id, name, phone, address')
       .single()
@@ -1739,10 +1767,14 @@ function App() {
   const handleUpdateCustomer = async (event) => {
     event.preventDefault()
 
+    const name = customerData.name.trim()
+    const phone = customerData.phone.trim()
+    const address = customerData.address.trim()
+
     if (
-      !customerData.name ||
-      !customerData.phone ||
-      !customerData.address
+      !name ||
+      !phone ||
+      !address
     ) {
       return
     }
@@ -1750,9 +1782,9 @@ function App() {
     const { data, error } = await supabase
       .from('customers')
       .update({
-        name: customerData.name.trim(),
-        phone: customerData.phone.trim(),
-        address: customerData.address.trim(),
+        name,
+        phone,
+        address,
       })
       .eq('id', editingCustomerId)
       .eq('user_id', session.user.id)
@@ -1786,16 +1818,24 @@ function App() {
   const handleAddDebt = async (event) => {
     event.preventDefault()
 
+    const customer = debtData.customer.trim()
+    const item = debtData.item.trim()
+    const total = Number(debtData.total)
+    const paid = debtData.paid === ''
+      ? 0
+      : Number(debtData.paid)
+
     if (
-      !debtData.customer ||
-      !debtData.item ||
-      !debtData.total
+      !customer ||
+      !item ||
+      debtData.total === '' ||
+      !Number.isFinite(total) ||
+      total <= 0 ||
+      !Number.isFinite(paid) ||
+      paid < 0
     ) {
       return
     }
-
-    const total = Number(debtData.total)
-    const paid = Number(debtData.paid) || 0
 
     if (paid > total) {
       alert(
@@ -1807,8 +1847,8 @@ function App() {
     const { data, error } = await supabase
       .from('debts')
       .insert({
-        customer: debtData.customer.trim(),
-        item: debtData.item.trim(),
+        customer,
+        item,
         total,
         paid,
       })
@@ -1841,7 +1881,11 @@ function App() {
 
     const amount = Number(paymentAmount)
 
-    if (paymentDebtId === null || !amount || amount <= 0) {
+    if (
+      paymentDebtId === null ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       return
     }
 
@@ -1903,28 +1947,29 @@ function App() {
   const handleAddExpense = async (event) => {
     event.preventDefault()
 
-    if (
-      !expenseData.name ||
-      !expenseData.category ||
-      !expenseData.amount ||
-      !expenseData.date
-    ) {
-      return
-    }
-
+    const name = expenseData.name.trim()
+    const category = expenseData.category.trim()
+    const date = expenseData.date.trim()
     const amount = Number(expenseData.amount)
 
-    if (amount <= 0) {
+    if (
+      !name ||
+      !category ||
+      !date ||
+      expenseData.amount === '' ||
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       return
     }
 
     const { data, error } = await supabase
       .from('expenses')
       .insert({
-        name: expenseData.name.trim(),
-        category: expenseData.category,
+        name,
+        category,
         amount,
-        date: expenseData.date,
+        date,
       })
       .select('id, name, category, amount, date')
       .single()
@@ -2017,7 +2062,9 @@ function App() {
             <span className="brand-icon">B</span>
             <span>
               <strong>{businessSettings.businessName}</strong>
-              <small>Business Manager</small>
+              <small>
+                {businessSettings.ownerName || 'Business Owner'}
+              </small>
             </span>
           </div>
           <button
@@ -2036,6 +2083,9 @@ function App() {
               key={item.id}
               type="button"
               className={activePage === item.id ? 'active' : ''}
+              aria-current={
+                activePage === item.id ? 'page' : undefined
+              }
               onClick={() => navigateTo(item.id)}
             >
               <span className="mobile-nav-icon">{item.icon}</span>
@@ -2047,7 +2097,7 @@ function App() {
         <button
           className="mobile-logout-button"
           type="button"
-          onClick={handleSignOut}
+          onClick={handleMobileSignOut}
         >
           <span className="mobile-nav-icon">↪</span>
           <span>Logout</span>
