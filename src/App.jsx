@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from './lib/supabaseClient'
 import './App.css'
 
@@ -102,6 +102,17 @@ const defaultBusinessSettings = {
   email: '',
   address: '',
 }
+
+const navigationItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'D' },
+  { id: 'products', label: 'Products', icon: 'P' },
+  { id: 'sales', label: 'Sales', icon: 'S' },
+  { id: 'customers', label: 'Customers', icon: 'C' },
+  { id: 'debts', label: 'Debts', icon: 'D' },
+  { id: 'expenses', label: 'Expenses', icon: 'E' },
+  { id: 'reports', label: 'Reports', icon: 'R' },
+  { id: 'settings', label: 'Settings', icon: 'S' },
+]
 
 const mapProduct = (product) => ({
   id: product.id,
@@ -611,6 +622,8 @@ function AuthPage({
 
 function App() {
   const [activePage, setActivePage] = useState('dashboard')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const authRecoveryPromise = useRef(null)
 
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -698,6 +711,59 @@ function App() {
     date: '',
   })
 
+  const navigateTo = (page) => {
+    setActivePage(page)
+    setMobileMenuOpen(false)
+  }
+
+  const recoverFromDataError = async (error, label) => {
+    const message = error?.message || 'Unknown error'
+    const isFutureJwtError = /jwt issued at future|token.*future/i.test(
+      message,
+    )
+
+    console.error(`${label}:`, error)
+
+    if (isFutureJwtError) {
+      if (!authRecoveryPromise.current) {
+        authRecoveryPromise.current = supabase.auth.refreshSession()
+      }
+
+      const { error: refreshError } =
+        await authRecoveryPromise.current
+      authRecoveryPromise.current = null
+
+      if (!refreshError) {
+        setAuthError(
+          'Your session timestamp was out of sync. The session was refreshed; please wait while your data reloads.',
+        )
+        return
+      }
+
+      setAuthError(
+        `Could not refresh your session: ${refreshError.message}`,
+      )
+      return
+    }
+
+    setAuthError(`${label}: ${message}`)
+  }
+
+  useEffect(() => {
+    if (!mobileMenuOpen) {
+      return undefined
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setMobileMenuOpen(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [mobileMenuOpen])
+
   useEffect(() => {
     let mounted = true
 
@@ -759,8 +825,7 @@ function App() {
         .order('created_at', { ascending: true })
 
       if (error) {
-        console.error('Could not load products:', error)
-        setAuthError(`Could not load products: ${error.message}`)
+        await recoverFromDataError(error, 'Could not load products')
         setProductLoading(false)
         return
       }
@@ -782,13 +847,9 @@ function App() {
           .select('id, name, category, price, stock, created_at')
 
         if (seedError) {
-          console.error(
-            'Could not create starter products:',
+          await recoverFromDataError(
             seedError,
-          )
-
-          setAuthError(
-            `Could not create starter products: ${seedError.message}`,
+            'Could not create starter products',
           )
 
           setProductLoading(false)
@@ -826,8 +887,7 @@ function App() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Could not load sales:', error)
-        setAuthError(`Could not load sales: ${error.message}`)
+        await recoverFromDataError(error, 'Could not load sales')
         setSalesLoading(false)
         return
       }
@@ -849,13 +909,9 @@ function App() {
           .select('id, customer, product, amount, status, created_at')
 
         if (seedError) {
-          console.error(
-            'Could not create starter sales:',
+          await recoverFromDataError(
             seedError,
-          )
-
-          setAuthError(
-            `Could not create starter sales: ${seedError.message}`,
+            'Could not create starter sales',
           )
 
           setSalesLoading(false)
@@ -893,8 +949,7 @@ function App() {
         .order('created_at', { ascending: true })
 
       if (error) {
-        console.error('Could not load customers:', error)
-        setAuthError(`Could not load customers: ${error.message}`)
+        await recoverFromDataError(error, 'Could not load customers')
         setCustomerLoading(false)
         return
       }
@@ -915,13 +970,9 @@ function App() {
           .select('id, name, phone, address, created_at')
 
         if (seedError) {
-          console.error(
-            'Could not create starter customers:',
+          await recoverFromDataError(
             seedError,
-          )
-
-          setAuthError(
-            `Could not create starter customers: ${seedError.message}`,
+            'Could not create starter customers',
           )
 
           setCustomerLoading(false)
@@ -959,8 +1010,7 @@ function App() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Could not load debts:', error)
-        setAuthError(`Could not load debts: ${error.message}`)
+        await recoverFromDataError(error, 'Could not load debts')
         setDebtLoading(false)
         return
       }
@@ -1026,8 +1076,7 @@ function App() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Could not load expenses:', error)
-        setAuthError(`Could not load expenses: ${error.message}`)
+        await recoverFromDataError(error, 'Could not load expenses')
         setExpenseLoading(false)
         return
       }
@@ -1049,13 +1098,9 @@ function App() {
           .select('id, name, category, amount, date, created_at')
 
         if (seedError) {
-          console.error(
-            'Could not create starter expenses:',
+          await recoverFromDataError(
             seedError,
-          )
-
-          setAuthError(
-            `Could not create starter expenses: ${seedError.message}`,
+            'Could not create starter expenses',
           )
 
           setExpenseLoading(false)
@@ -1095,12 +1140,9 @@ function App() {
         .maybeSingle()
 
       if (error) {
-        console.error(
-          'Could not load business settings:',
+        await recoverFromDataError(
           error,
-        )
-        setAuthError(
-          `Could not load business settings: ${error.message}`,
+          'Could not load business settings',
         )
         setSettingsLoading(false)
         return
@@ -1123,12 +1165,9 @@ function App() {
             .single()
 
         if (insertError) {
-          console.error(
-            'Could not create business settings:',
+          await recoverFromDataError(
             insertError,
-          )
-          setAuthError(
-            `Could not create business settings: ${insertError.message}`,
+            'Could not create business settings',
           )
           setSettingsLoading(false)
           return
@@ -1960,6 +1999,61 @@ function App() {
 
   return (
     <div className="app">
+      <div
+        className={`mobile-drawer-backdrop ${
+          mobileMenuOpen ? 'is-open' : ''
+        }`}
+        aria-hidden="true"
+        onClick={() => setMobileMenuOpen(false)}
+      />
+
+      <aside
+        className={`mobile-drawer ${mobileMenuOpen ? 'is-open' : ''}`}
+        aria-label="Mobile navigation"
+        aria-hidden={!mobileMenuOpen}
+      >
+        <div className="mobile-drawer-header">
+          <div className="mobile-drawer-brand">
+            <span className="brand-icon">B</span>
+            <span>
+              <strong>{businessSettings.businessName}</strong>
+              <small>Business Manager</small>
+            </span>
+          </div>
+          <button
+            className="mobile-close-button"
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            ×
+          </button>
+        </div>
+
+        <nav className="mobile-drawer-nav">
+          {navigationItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={activePage === item.id ? 'active' : ''}
+              onClick={() => navigateTo(item.id)}
+            >
+              <span className="mobile-nav-icon">{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <button
+          className="mobile-logout-button"
+          type="button"
+          onClick={handleSignOut}
+        >
+          <span className="mobile-nav-icon">↪</span>
+          <span>Logout</span>
+        </button>
+      </aside>
+
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">B</div>
@@ -2104,6 +2198,41 @@ function App() {
       </aside>
 
       <main className="main-content">
+        <header className="mobile-header">
+          <button
+            className="mobile-menu-button"
+            type="button"
+            aria-label="Open navigation"
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <div className="mobile-header-brand">
+            <span className="mobile-header-logo">B</span>
+            <span className="mobile-header-copy">
+              <strong>{businessSettings.businessName}</strong>
+              <small>
+                {businessSettings.ownerName || 'Business Owner'}
+              </small>
+            </span>
+          </div>
+
+          <button
+            className="mobile-profile-button"
+            type="button"
+            aria-label={`Open profile for ${businessSettings.ownerName}`}
+            onClick={() => navigateTo('settings')}
+          >
+            {(businessSettings.ownerName || 'Business Owner')
+              .charAt(0)
+              .toUpperCase()}
+          </button>
+        </header>
+
         {authError && (
           <div className="app-error-banner" role="alert">
             <span>{authError}</span>
