@@ -98,6 +98,7 @@ const initialExpenses = [
 const defaultBusinessSettings = {
   businessName: 'Business Manager',
   ownerName: 'Business Owner',
+  businessType: 'retail',
   phone: '',
   email: '',
   address: '',
@@ -118,6 +119,8 @@ const mapProduct = (product) => ({
   id: product.id,
   name: product.name,
   category: product.category,
+  purchasePrice: Number(product.purchase_price || 0),
+  baseUnit: product.base_unit || 'piece',
   price: Number(product.price),
   stock: Number(product.stock),
 })
@@ -157,6 +160,7 @@ const mapExpense = (expense) => ({
 const mapBusinessSettings = (settings) => ({
   businessName: settings.business_name,
   ownerName: settings.owner_name,
+  businessType: settings.business_type || 'retail',
   phone: settings.phone || '',
   email: settings.email || '',
   address: settings.address || '',
@@ -650,17 +654,18 @@ function App() {
     message: '',
   })
 
-  const [products, setProducts] = useState(initialProducts)
+  const [products, setProducts] = useState([])
   const [productLoading, setProductLoading] = useState(false)
 
-  const [sales, setSales] = useState(initialSales)
+  const [sales, setSales] = useState([])
   const [salesLoading, setSalesLoading] = useState(false)
+  const [receiptData, setReceiptData] = useState(null)
 
-  const [customers, setCustomers] = useState(initialCustomers)
+  const [customers, setCustomers] = useState([])
   const [customerLoading, setCustomerLoading] = useState(false)
-  const [debts, setDebts] = useState(initialDebts)
+  const [debts, setDebts] = useState([])
   const [debtLoading, setDebtLoading] = useState(false)
-  const [expenses, setExpenses] = useState(initialExpenses)
+  const [expenses, setExpenses] = useState([])
   const [expenseLoading, setExpenseLoading] = useState(false)
 
   const [search, setSearch] = useState('')
@@ -680,9 +685,12 @@ function App() {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
+    purchasePrice: '',
+    baseUnit: 'piece',
     price: '',
     stock: '',
   })
+  const [editingProductId, setEditingProductId] = useState(null)
 
   const [saleData, setSaleData] = useState({
     customer: '',
@@ -831,43 +839,12 @@ function App() {
 
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, category, price, stock, created_at')
+        .select('id, name, category, purchase_price, base_unit, price, stock, created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: true })
 
       if (error) {
         await recoverFromDataError(error, 'Could not load products')
-        setProductLoading(false)
-        return
-      }
-
-      if (data.length === 0) {
-        const seedProducts = initialProducts.map((product) => ({
-          name: product.name,
-          category: product.category,
-          price: product.price,
-          stock: product.stock,
-        }))
-
-        const {
-          data: insertedProducts,
-          error: seedError,
-        } = await supabase
-          .from('products')
-          .insert(seedProducts)
-          .select('id, name, category, price, stock, created_at')
-
-        if (seedError) {
-          await recoverFromDataError(
-            seedError,
-            'Could not create starter products',
-          )
-
-          setProductLoading(false)
-          return
-        }
-
-        setProducts(insertedProducts.map(mapProduct))
         setProductLoading(false)
         return
       }
@@ -903,37 +880,6 @@ function App() {
         return
       }
 
-      if (data.length === 0) {
-        const seedSales = initialSales.map((sale) => ({
-          customer: sale.customer,
-          product: sale.product,
-          amount: sale.amount,
-          status: sale.status,
-        }))
-
-        const {
-          data: insertedSales,
-          error: seedError,
-        } = await supabase
-          .from('sales')
-          .insert(seedSales)
-          .select('id, customer, product, amount, status, created_at')
-
-        if (seedError) {
-          await recoverFromDataError(
-            seedError,
-            'Could not create starter sales',
-          )
-
-          setSalesLoading(false)
-          return
-        }
-
-        setSales(insertedSales.map(mapSale))
-        setSalesLoading(false)
-        return
-      }
-
       setSales(data.map(mapSale))
       setSalesLoading(false)
     }
@@ -961,36 +907,6 @@ function App() {
 
       if (error) {
         await recoverFromDataError(error, 'Could not load customers')
-        setCustomerLoading(false)
-        return
-      }
-
-      if (data.length === 0) {
-        const seedCustomers = initialCustomers.map((customer) => ({
-          name: customer.name,
-          phone: customer.phone,
-          address: customer.address,
-        }))
-
-        const {
-          data: insertedCustomers,
-          error: seedError,
-        } = await supabase
-          .from('customers')
-          .insert(seedCustomers)
-          .select('id, name, phone, address, created_at')
-
-        if (seedError) {
-          await recoverFromDataError(
-            seedError,
-            'Could not create starter customers',
-          )
-
-          setCustomerLoading(false)
-          return
-        }
-
-        setCustomers(insertedCustomers.map(mapCustomer))
         setCustomerLoading(false)
         return
       }
@@ -1026,41 +942,6 @@ function App() {
         return
       }
 
-      if (data.length === 0) {
-        const seedDebts = initialDebts.map((debt) => ({
-          customer: debt.customer,
-          item: debt.item,
-          total: debt.total,
-          paid: debt.paid,
-        }))
-
-        const {
-          data: insertedDebts,
-          error: seedError,
-        } = await supabase
-          .from('debts')
-          .insert(seedDebts)
-          .select('id, customer, item, total, paid, created_at')
-
-        if (seedError) {
-          console.error(
-            'Could not create starter debts:',
-            seedError,
-          )
-
-          setAuthError(
-            `Could not create starter debts: ${seedError.message}`,
-          )
-
-          setDebtLoading(false)
-          return
-        }
-
-        setDebts(insertedDebts.map(mapDebt))
-        setDebtLoading(false)
-        return
-      }
-
       setDebts(data.map(mapDebt))
       setDebtLoading(false)
     }
@@ -1092,37 +973,6 @@ function App() {
         return
       }
 
-      if (data.length === 0) {
-        const seedExpenses = initialExpenses.map((expense) => ({
-          name: expense.name,
-          category: expense.category,
-          amount: expense.amount,
-          date: expense.date,
-        }))
-
-        const {
-          data: insertedExpenses,
-          error: seedError,
-        } = await supabase
-          .from('expenses')
-          .insert(seedExpenses)
-          .select('id, name, category, amount, date, created_at')
-
-        if (seedError) {
-          await recoverFromDataError(
-            seedError,
-            'Could not create starter expenses',
-          )
-
-          setExpenseLoading(false)
-          return
-        }
-
-        setExpenses(insertedExpenses.map(mapExpense))
-        setExpenseLoading(false)
-        return
-      }
-
       setExpenses(data.map(mapExpense))
       setExpenseLoading(false)
     }
@@ -1145,7 +995,7 @@ function App() {
       const { data, error } = await supabase
         .from('business_settings')
         .select(
-          'id, business_name, owner_name, phone, email, address, created_at, updated_at',
+          'id, business_name, owner_name, business_type, phone, email, address, created_at, updated_at',
         )
         .eq('user_id', session.user.id)
         .maybeSingle()
@@ -1171,7 +1021,7 @@ function App() {
               address: defaultBusinessSettings.address,
             })
             .select(
-              'id, business_name, owner_name, phone, email, address, created_at, updated_at',
+              'id, business_name, owner_name, business_type, phone, email, address, created_at, updated_at',
             )
             .single()
 
@@ -1384,10 +1234,11 @@ function App() {
         phone: settingsData.phone.trim(),
         email: settingsData.email.trim(),
         address: settingsData.address.trim(),
+        business_type: settingsData.businessType,
       })
       .eq('user_id', session.user.id)
       .select(
-        'id, business_name, owner_name, phone, email, address, created_at, updated_at',
+        'id, business_name, owner_name, business_type, phone, email, address, created_at, updated_at',
       )
       .single()
 
@@ -1490,6 +1341,7 @@ function App() {
 
     const name = formData.name.trim()
     const category = formData.category.trim()
+    const purchasePrice = Number(formData.purchasePrice || 0)
     const price = Number(formData.price)
     const stock = Number(formData.stock)
 
@@ -1498,6 +1350,8 @@ function App() {
       !category ||
       formData.price === '' ||
       formData.stock === '' ||
+      !Number.isFinite(purchasePrice) ||
+      purchasePrice < 0 ||
       !Number.isFinite(price) ||
       price < 0 ||
       !Number.isFinite(stock) ||
@@ -1507,37 +1361,95 @@ function App() {
       return
     }
 
-    const { data, error } = await supabase
-      .from('products')
-      .insert({
-        name,
-        category,
-        price,
-        stock,
-      })
-      .select('id, name, category, price, stock')
-      .single()
+    const productValues = {
+      name,
+      category,
+      purchase_price: purchasePrice,
+      base_unit: formData.baseUnit,
+      price,
+      stock,
+    }
+
+    const result = editingProductId
+      ? await supabase
+          .from('products')
+          .update(productValues)
+          .eq('id', editingProductId)
+          .eq('user_id', session.user.id)
+          .select('id, name, category, purchase_price, base_unit, price, stock')
+          .single()
+      : await supabase
+          .from('products')
+          .insert(productValues)
+          .select('id, name, category, purchase_price, base_unit, price, stock')
+          .single()
+
+    const { data, error } = result
 
     if (error) {
       console.error('Could not save product:', error)
-
       alert(`Could not save product: ${error.message}`)
       return
     }
 
-    setProducts((current) => [
-      ...current,
-      mapProduct(data),
-    ])
+    setProducts((current) =>
+      editingProductId
+        ? current.map((product) =>
+            product.id === editingProductId ? mapProduct(data) : product,
+          )
+        : [...current, mapProduct(data)],
+    )
 
     setFormData({
       name: '',
       category: '',
+      purchasePrice: '',
+        baseUnit: 'piece',
       price: '',
       stock: '',
     })
-
+    setEditingProductId(null)
     setShowProductForm(false)
+  }
+
+  const handleEditProduct = (product) => {
+    setFormData({
+      name: product.name,
+      category: product.category,
+      purchasePrice: String(product.purchasePrice || ''),
+      baseUnit: product.baseUnit || 'piece',
+      price: String(product.price),
+      stock: String(product.stock),
+    })
+    setEditingProductId(product.id)
+    setShowProductForm(true)
+  }
+
+  const handleRestockProduct = async (product) => {
+    const quantityInput = window.prompt(`How many units of ${product.name} are being added?`)
+    if (quantityInput === null) return
+    const quantity = Number(quantityInput)
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      alert('Enter a whole number greater than zero.')
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('products')
+      .update({ stock: product.stock + quantity })
+      .eq('id', product.id)
+      .eq('user_id', session.user.id)
+      .select('id, name, category, purchase_price, base_unit, price, stock')
+      .single()
+
+    if (error) {
+      alert(`Could not update stock: ${error.message}`)
+      return
+    }
+
+    setProducts((current) =>
+      current.map((item) => item.id === product.id ? mapProduct(data) : item),
+    )
   }
 
   /*
@@ -1567,46 +1479,84 @@ function App() {
    * STAGE 11.3
    * Record sale in Supabase and update product stock.
    */
-  const handleRecordSale = async (event) => {
+  const handleRecordSale = async (event, cartItems = []) => {
     event.preventDefault()
 
-    const selectedProduct = products.find(
-      (product) =>
-        String(product.id) === String(saleData.productId),
-    )
-
-    const quantity = Number(saleData.quantity)
     const customer = saleData.customer.trim()
-
-    if (
-      !customer ||
-      !selectedProduct ||
-      !Number.isFinite(quantity) ||
-      !Number.isInteger(quantity) ||
-      quantity < 1 ||
-      !['Paid', 'Pending'].includes(saleData.status)
-    ) {
+    if (!customer || !Array.isArray(cartItems) || cartItems.length === 0 ||
+        !['Paid', 'Pending'].includes(saleData.status)) {
+      alert('Add at least one product to the cart before recording the sale.')
       return
     }
 
-    if (quantity > selectedProduct.stock) {
-      alert(
-        `Only ${selectedProduct.stock} units are available.`,
-      )
+    const saleLines = cartItems.map((item) => {
+      const product = products.find((entry) => String(entry.id) === String(item.productId))
+      const quantity = Number(item.quantity)
+      const isHalfUnit = item.saleUnit === 'half'
+      const stockToDeduct = quantity * (isHalfUnit ? 0.5 : 1)
+      const unitLabel = isHalfUnit ? `Half ${product?.baseUnit || 'unit'}` : (product?.baseUnit || 'unit')
+      return { product, quantity, stockToDeduct, unitLabel, item }
+    })
+
+    if (saleLines.some((line) =>
+      !line.product || !Number.isInteger(line.quantity) || line.quantity < 1 ||
+      (line.item.saleUnit === 'half' && !['carton', 'bag'].includes(line.product.baseUnit)) ||
+      line.stockToDeduct > line.product.stock
+    )) {
+      alert('One or more cart items have invalid quantities or insufficient stock. Please review the cart.')
       return
     }
 
-    const saleAmount = selectedProduct.price * quantity
+    const saleAmount = saleLines.reduce((total, line) => {
+      const unitPrice = line.product.price * (line.item.saleUnit === 'half' ? 0.5 : 1)
+      return total + unitPrice * line.quantity
+    }, 0)
 
-    const saleProductName =
-      quantity > 1
-        ? `${selectedProduct.name} × ${quantity}`
-        : selectedProduct.name
+    const saleProductName = saleLines.map((line) =>
+      `${line.product.name} (${line.unitLabel} × ${line.quantity})`
+    ).join(', ')
 
-    const {
-      data: insertedSale,
-      error: saleError,
-    } = await supabase
+    const stockChanges = new Map()
+    for (const line of saleLines) {
+      const key = String(line.product.id)
+      const existing = stockChanges.get(key)
+      stockChanges.set(key, {
+        product: line.product,
+        stockToDeduct: (existing?.stockToDeduct || 0) + line.stockToDeduct,
+      })
+    }
+
+    const updatedProducts = []
+    for (const { product, stockToDeduct } of stockChanges.values()) {
+      if (stockToDeduct > product.stock) {
+        alert(`Not enough stock for ${product.name}. Available: ${product.stock} ${product.baseUnit}.`)
+        for (const previous of updatedProducts) {
+          await supabase.from('products').update({ stock: previous.oldStock })
+            .eq('id', previous.id).eq('user_id', session.user.id)
+        }
+        return
+      }
+      const newStock = Number((product.stock - stockToDeduct).toFixed(2))
+      const { data, error } = await supabase
+        .from('products')
+        .update({ stock: newStock })
+        .eq('id', product.id)
+        .eq('user_id', session.user.id)
+        .select('id, name, category, purchase_price, base_unit, price, stock')
+        .single()
+
+      if (error) {
+        for (const previous of updatedProducts) {
+          await supabase.from('products').update({ stock: previous.oldStock })
+            .eq('id', previous.id).eq('user_id', session.user.id)
+        }
+        alert(`Could not update stock for ${product.name}: ${error.message}. No sale was recorded.`)
+        return
+      }
+      updatedProducts.push({ id: product.id, oldStock: product.stock, data })
+    }
+
+    const { data: insertedSale, error: saleError } = await supabase
       .from('sales')
       .insert({
         customer,
@@ -1618,67 +1568,65 @@ function App() {
       .single()
 
     if (saleError) {
-      console.error('Could not save sale:', saleError)
-
-      alert(`Could not save sale: ${saleError.message}`)
+      for (const previous of updatedProducts) {
+        await supabase.from('products')
+          .update({ stock: previous.oldStock })
+          .eq('id', previous.id)
+          .eq('user_id', session.user.id)
+      }
+      alert(`Could not save sale: ${saleError.message}. Stock changes were rolled back.`)
       return
     }
 
-    const newStock =
-      selectedProduct.stock - quantity
+    setSales((current) => [mapSale(insertedSale), ...current])
+    setReceiptData({
+      id: insertedSale.id,
+      customer,
+      amount: saleAmount,
+      status: saleData.status,
+      createdAt: insertedSale.created_at || new Date().toISOString(),
+      items: saleLines.map((line) => ({
+        name: line.product.name,
+        unit: line.unitLabel,
+        quantity: line.quantity,
+        unitPrice: line.product.price * (line.item.saleUnit === 'half' ? 0.5 : 1),
+        total: line.product.price * (line.item.saleUnit === 'half' ? 0.5 : 1) * line.quantity,
+      })),
+    })
+    setProducts((current) => current.map((product) => {
+      const updated = updatedProducts.find((entry) => entry.id === product.id)
+      return updated ? mapProduct(updated.data) : product
+    }))
+    setSaleData({ customer: '', productId: '', quantity: '1', status: 'Paid' })
+    setShowSaleForm(true)
+  }
 
-    const {
-      data: updatedProduct,
-      error: stockError,
-    } = await supabase
-      .from('products')
-      .update({
-        stock: newStock,
-      })
-      .eq('id', selectedProduct.id)
+  const handleMarkSaleAsPaid = async (sale) => {
+    if (!sale || sale.status !== 'Pending') return
+    const confirmed = window.confirm(`Confirm that ${sale.customer} has paid ₦${Number(sale.amount).toLocaleString()}?`)
+    if (!confirmed) return
+
+    const { data, error } = await supabase
+      .from('sales')
+      .update({ status: 'Paid' })
+      .eq('id', sale.id)
       .eq('user_id', session.user.id)
-      .select('id, name, category, price, stock')
+      .eq('status', 'Pending')
+      .select('id, customer, product, amount, status, created_at')
       .single()
 
-    if (stockError) {
-      console.error(
-        'Could not update product stock:',
-        stockError,
-      )
-
-      await supabase
-        .from('sales')
-        .delete()
-        .eq('id', insertedSale.id)
-        .eq('user_id', session.user.id)
-
-      alert(
-        `Could not update product stock: ${stockError.message}`,
-      )
+    if (error) {
+      alert(`Could not update payment status: ${error.message}`)
       return
     }
 
-    setSales((current) => [
-      mapSale(insertedSale),
-      ...current,
-    ])
-
-    setProducts((current) =>
-      current.map((product) =>
-        product.id === selectedProduct.id
-          ? mapProduct(updatedProduct)
-          : product,
-      ),
+    setSales((current) => current.map((item) =>
+      item.id === sale.id ? mapSale(data) : item
+    ))
+    setReceiptData((current) =>
+      current?.id === sale.id ? { ...current, status: 'Paid' } : current
     )
-
-    setSaleData({
-      customer: '',
-      productId: '',
-      quantity: '1',
-      status: 'Paid',
-    })
-
-    setShowSaleForm(false)
+    alert('Payment recorded. This sale is now marked as Paid.')
   }
 
   const handleAddCustomer = async (event) => {
@@ -2318,6 +2266,11 @@ function App() {
             formData={formData}
             handleChange={handleChange}
             handleAddProduct={handleAddProduct}
+            handleEditProduct={handleEditProduct}
+            handleRestockProduct={handleRestockProduct}
+            editingProductId={editingProductId}
+            setEditingProductId={setEditingProductId}
+            setFormData={setFormData}
             handleDeleteProduct={handleDeleteProduct}
             loading={productLoading}
           />
@@ -2332,6 +2285,10 @@ function App() {
             saleData={saleData}
             handleSaleChange={handleSaleChange}
             handleRecordSale={handleRecordSale}
+            handleMarkSaleAsPaid={handleMarkSaleAsPaid}
+            receiptData={receiptData}
+            onCloseReceipt={() => setReceiptData(null)}
+            businessSettings={businessSettings}
             loading={salesLoading}
           />
         )}
@@ -2912,6 +2869,11 @@ function ProductsPage({
   formData,
   handleChange,
   handleAddProduct,
+  handleEditProduct,
+  handleRestockProduct,
+  editingProductId,
+  setEditingProductId,
+  setFormData,
   handleDeleteProduct,
   loading,
 }) {
@@ -2922,7 +2884,9 @@ function ProductsPage({
           <h2>Products</h2>
 
           <p>
-            Manage your products, prices and stock.
+            Manage your products, prices and stock.{' '}
+            {products.filter((product) => product.stock <= 7).length > 0 &&
+              `Low stock: ${products.filter((product) => product.stock <= 7).length} product(s)`}
           </p>
         </div>
 
@@ -2970,7 +2934,39 @@ function ProductsPage({
           </div>
 
           <div>
-            <label htmlFor="product-price">Price (₦)</label>
+            <label htmlFor="product-purchase-price">Purchase Price (₦)</label>
+            <input
+              id="product-purchase-price"
+              name="purchasePrice"
+              type="number"
+              min="0"
+              value={formData.purchasePrice}
+              onChange={handleChange}
+              placeholder="e.g. 40000"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-base-unit">Stock Unit</label>
+            <select
+              id="product-base-unit"
+              name="baseUnit"
+              value={formData.baseUnit}
+              onChange={handleChange}
+            >
+              <option value="piece">Piece</option>
+              <option value="pack">Pack</option>
+              <option value="carton">Carton</option>
+              <option value="bag">Bag</option>
+              <option value="bottle">Bottle</option>
+              <option value="crate">Crate</option>
+              <option value="kg">Kilogram (kg)</option>
+              <option value="litre">Litre</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="product-price">Selling Price (₦)</label>
 
             <input
               id="product-price"
@@ -3003,8 +2999,21 @@ function ProductsPage({
             type="submit"
             className="save-product-button"
           >
-            Save Product
+            {editingProductId ? 'Update Product' : 'Save Product'}
           </button>
+          {editingProductId && (
+            <button
+              type="button"
+              className="delete-button"
+              onClick={() => {
+                setEditingProductId(null)
+                setFormData({ name: '', category: '', purchasePrice: '', baseUnit: 'piece', price: '', stock: '' })
+                setShowForm(false)
+              }}
+            >
+              Cancel Edit
+            </button>
+          )}
         </form>
       )}
 
@@ -3063,7 +3072,10 @@ function ProductsPage({
                 </div>
 
                 <div className="product-price">
-                  ₦{product.price.toLocaleString()}
+                  <strong>Sell: ₦{product.price.toLocaleString()}</strong>
+                  <span className="product-cost">
+                    Buy: ₦{product.purchasePrice.toLocaleString()}
+                  </span>
                 </div>
 
                 <div
@@ -3075,16 +3087,27 @@ function ProductsPage({
                         : 'product-stock'
                   }
                 >
-                  {product.stock} in stock
+                  {product.stock % 1 === 0.5 ? `${Math.floor(product.stock)}½ ${product.baseUnit || 'units'}` : `${product.stock} ${product.baseUnit || 'units'}`} in stock
                 </div>
 
                 <button
+                  type="button"
+                  className="save-product-button"
+                  onClick={() => handleRestockProduct(product)}
+                >
+                  Restock
+                </button>
+                <button
+                  type="button"
+                  className="save-product-button"
+                  onClick={() => handleEditProduct(product)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
                   className="delete-button"
-                  onClick={() =>
-                    handleDeleteProduct(
-                      product.id,
-                    )
-                  }
+                  onClick={() => handleDeleteProduct(product.id)}
                 >
                   Delete
                 </button>
@@ -3277,6 +3300,206 @@ function SalesPage({
 
 */
 
+function SalesCartForm({ products, saleData, handleSaleChange, handleRecordSale }) {
+  const [selectedProductId, setSelectedProductId] = useState('')
+  const [saleUnit, setSaleUnit] = useState('full')
+  const [quantity, setQuantity] = useState('1')
+  const [cart, setCart] = useState([])
+
+  const selectedProduct = products.find((product) => String(product.id) === String(selectedProductId))
+  const canSellHalf = ['carton', 'bag'].includes(selectedProduct?.baseUnit)
+  const unitName = selectedProduct?.baseUnit || 'unit'
+  const selectedFactor = saleUnit === 'half' && canSellHalf ? 0.5 : 1
+  const availableStock = selectedProduct ? Number(selectedProduct.stock || 0) : 0
+  const linePrice = selectedProduct ? selectedProduct.price * selectedFactor * Number(quantity || 0) : 0
+  const cartTotal = cart.reduce((sum, item) => {
+    const product = products.find((entry) => String(entry.id) === String(item.productId))
+    return sum + (product ? product.price * (item.saleUnit === 'half' ? 0.5 : 1) * item.quantity : 0)
+  }, 0)
+
+  const addToCart = () => {
+    const count = Number(quantity)
+    if (!selectedProduct || !Number.isInteger(count) || count < 1) return
+    const factor = saleUnit === 'half' && canSellHalf ? 0.5 : 1
+    const alreadyInCart = cart.filter((item) => String(item.productId) === String(selectedProduct.id))
+      .reduce((sum, item) => sum + item.quantity * (item.saleUnit === 'half' ? 0.5 : 1), 0)
+    if (alreadyInCart + count * factor > availableStock) {
+      alert(`Not enough stock. Available: ${availableStock} ${unitName}.`)
+      return
+    }
+    setCart((current) => [...current, { productId: selectedProduct.id, saleUnit: factor === 0.5 ? 'half' : 'full', quantity: count }])
+    setSelectedProductId('')
+    setSaleUnit('full')
+    setQuantity('1')
+  }
+
+  const removeCartItem = (index) => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))
+
+  const formatMoney = (value) => '₦' + Number(value || 0).toLocaleString()
+  const describeUnit = (product, item) => item.saleUnit === 'half'
+    ? `Half ${product.baseUnit}`
+    : product.baseUnit
+
+  return (
+    <form className="sale-form sales-record-form" onSubmit={(event) => handleRecordSale(event, cart)}>
+      <div>
+        <label htmlFor="sale-customer">Customer Name</label>
+        <input id="sale-customer" name="customer" value={saleData.customer}
+          onChange={handleSaleChange} placeholder="e.g. John Ibrahim" required />
+      </div>
+
+      <div>
+        <label htmlFor="sale-product">Product</label>
+        <select id="sale-product" value={selectedProductId}
+          onChange={(event) => { setSelectedProductId(event.target.value); setSaleUnit('full') }}>
+          <option value="">Select a product</option>
+          {products.filter((product) => product.stock > 0).map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name} — {product.stock} {product.baseUnit || 'units'} available
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedProduct && (
+        <>
+          <div>
+            <label htmlFor="sale-unit">Sale Unit</label>
+            <select id="sale-unit" value={saleUnit} onChange={(event) => setSaleUnit(event.target.value)}>
+              <option value="full">Full {unitName}</option>
+              {canSellHalf && <option value="half">Half {unitName}</option>}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="sale-quantity">Quantity</label>
+            <input id="sale-quantity" type="number" min="1" step="1" value={quantity}
+              onChange={(event) => setQuantity(event.target.value)} />
+          </div>
+          <div>
+            <label>Line Total</label>
+            <strong>{formatMoney(linePrice)}</strong>
+          </div>
+          <button type="button" className="save-product-button" onClick={addToCart}>Add to Cart</button>
+        </>
+      )}
+
+      <div className="sales-cart" style={{ gridColumn: '1 / -1', border: '1px solid #e2e8e5', borderRadius: '12px', padding: '16px' }}>
+        <h3 style={{ marginTop: 0 }}>Cart ({cart.length} items)</h3>
+        {cart.length === 0 ? <p>No items added yet.</p> : (
+          <div style={{ display: 'grid', gap: '10px' }}>
+            {cart.map((item, index) => {
+              const product = products.find((entry) => String(entry.id) === String(item.productId))
+              if (!product) return null
+              const amount = product.price * (item.saleUnit === 'half' ? 0.5 : 1) * item.quantity
+              return (
+                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span>{product.name} — {describeUnit(product, item)} × {item.quantity}</span>
+                  <strong>{formatMoney(amount)}</strong>
+                  <button type="button" className="delete-button" onClick={() => removeCartItem(index)}>Remove</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8e5' }}>
+          <strong>Grand Total</strong><strong>{formatMoney(cartTotal)}</strong>
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="sale-status">Payment Status</label>
+        <select id="sale-status" name="status" value={saleData.status} onChange={handleSaleChange}>
+          <option value="Paid">Paid</option>
+          <option value="Pending">Pending</option>
+        </select>
+      </div>
+
+      <button type="submit" className="save-product-button" disabled={cart.length === 0}>Record Sale</button>
+    </form>
+  )
+}
+
+function ReceiptModal({ receipt, business, onClose }) {
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    window.history.pushState({ receiptOpen: true }, '')
+    const handleBack = () => onCloseRef.current()
+    window.addEventListener('popstate', handleBack)
+    return () => window.removeEventListener('popstate', handleBack)
+  }, [receipt.id])
+
+  const handleReceiptBack = () => window.history.back()
+  const formatMoney = (value) => '₦' + Number(value || 0).toLocaleString('en-NG')
+  const receiptNumber = String(receipt.id || '').slice(0, 8).toUpperCase()
+  const receiptDate = new Date(receipt.createdAt).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })
+
+  return (
+    <div className="receipt-overlay" role="dialog" aria-modal="true" aria-label="Sales receipt">
+      <style>{`
+        @media print {
+          @page { size: auto; margin: 12mm; }
+          body * { visibility: hidden !important; }
+          .receipt-print-area, .receipt-print-area * { visibility: visible !important; }
+          .receipt-print-area { position: absolute !important; inset: 0 auto auto 0 !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: #fff !important; color: #111 !important; }
+          .receipt-actions, .receipt-overlay-close { display: none !important; }
+        }
+      `}</style>
+      <div className="receipt-modal">
+        <div className="receipt-print-area">
+          <div className="receipt-heading">
+            <h2>{business?.businessName || 'Business Manager'}</h2>
+            {business?.address && <p>{business.address}</p>}
+            {business?.phone && <p>Phone: {business.phone}</p>}
+            {business?.email && <p>{business.email}</p>}
+            <h3>SALES RECEIPT</h3>
+          </div>
+          <div className={`receipt-payment-status ${receipt.status === 'Paid' ? 'receipt-paid' : 'receipt-pending'}`}>
+            {receipt.status === 'Paid' ? 'PAID — CASH' : 'NOT PAID — PAYMENT PENDING'}
+          </div>
+          <div className="receipt-meta">
+            <span><strong>Receipt No:</strong> {receiptNumber}</span>
+            <span><strong>Date:</strong> {receiptDate}</span>
+            <span><strong>Customer:</strong> {receipt.customer}</span>
+            <span><strong>Payment Status:</strong> {receipt.status === 'Paid' ? 'Paid in cash' : 'Unpaid — pay later'}</span>
+          </div>
+          <table className="receipt-table">
+            <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+            <tbody>
+              {receipt.items.map((item, index) => (
+                <tr key={index}>
+                  <td>{item.name} ({item.unit})</td><td>{item.quantity}</td>
+                  <td>{formatMoney(item.unitPrice)}</td><td>{formatMoney(item.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="receipt-grand-total"><strong>GRAND TOTAL</strong><strong>{formatMoney(receipt.amount)}</strong></div>
+          <div className="receipt-balance-row">
+            <span>{receipt.status === 'Paid' ? 'Amount Paid' : 'Amount Paid'}</span>
+            <strong>{formatMoney(receipt.status === 'Paid' ? receipt.amount : 0)}</strong>
+          </div>
+          {receipt.status === 'Pending' && (
+            <div className="receipt-balance-row receipt-balance-due">
+              <span>Balance Due</span><strong>{formatMoney(receipt.amount)}</strong>
+            </div>
+          )}
+          <p className="receipt-thank-you">{receipt.status === 'Paid' ? 'Thank you for your payment!' : 'Please keep this receipt and pay the outstanding balance on your next visit.'}</p>
+        </div>
+        <div className="receipt-actions">
+          <button type="button" className="save-product-button" onClick={() => window.print()}>Print Receipt</button>
+          <button type="button" className="delete-button" onClick={handleReceiptBack}>← Back to Sales</button>
+        </div>
+        <button type="button" className="receipt-overlay-close" onClick={handleReceiptBack} aria-label="Back to sales">×</button>
+      </div>
+    </div>
+  )
+}
+
 function SalesPage({
   products,
   sales,
@@ -3285,6 +3508,10 @@ function SalesPage({
   saleData,
   handleSaleChange,
   handleRecordSale,
+  handleMarkSaleAsPaid,
+  receiptData,
+  onCloseReceipt,
+  businessSettings,
   loading,
 }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -3398,7 +3625,9 @@ function SalesPage({
   }
 
   return (
-    <div className="sales-page">
+    <>
+      {receiptData && <ReceiptModal receipt={receiptData} business={businessSettings} onClose={onCloseReceipt} />}
+      <div className="sales-page">
       <header className="topbar">
         <div>
           <h2>Sales</h2>
@@ -3467,85 +3696,13 @@ function SalesPage({
       </section>
 
       {showForm && (
-        <form
-          className="sale-form sales-record-form"
-          onSubmit={handleRecordSale}
-        >
-          <div>
-            <label htmlFor="sale-customer">Customer Name</label>
-
-            <input
-              id="sale-customer"
-              name="customer"
-              value={saleData.customer}
-              onChange={handleSaleChange}
-              placeholder="e.g. John Ibrahim"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="sale-product">Product</label>
-
-            <select
-              id="sale-product"
-              name="productId"
-              value={saleData.productId}
-              onChange={handleSaleChange}
-              required
-            >
-              <option value="">Select a product</option>
-
-              {products
-                .filter(
-                  (product) => product.stock > 0,
-                )
-                .map((product) => (
-                  <option
-                    key={product.id}
-                    value={product.id}
-                  >
-                    {product.name} — {product.stock} available
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="sale-quantity">Quantity</label>
-
-            <input
-              id="sale-quantity"
-              name="quantity"
-              type="number"
-              min="1"
-              value={saleData.quantity}
-              onChange={handleSaleChange}
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="sale-status">Payment Status</label>
-
-            <select
-              id="sale-status"
-              name="status"
-              value={saleData.status}
-              onChange={handleSaleChange}
-            >
-              <option value="Paid">Paid</option>
-              <option value="Pending">Pending</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            className="save-product-button"
-          >
-            Record Sale
-          </button>
-        </form>
+        <SalesCartForm
+          key={receiptData?.id || 'new-sale'}
+          products={products}
+          saleData={saleData}
+          handleSaleChange={handleSaleChange}
+          handleRecordSale={handleRecordSale}
+        />
       )}
 
       <section className="products-card sales-history-card">
@@ -3644,6 +3801,7 @@ function SalesPage({
                   <th>Amount</th>
                   <th>Payment Status</th>
                   <th>Date / Time</th>
+                  <th>Action</th>
                 </tr>
               </thead>
 
@@ -3682,6 +3840,19 @@ function SalesPage({
                         {formatSaleDate(sale.createdAt)}
                       </span>
                     </td>
+                    <td data-label="Action">
+                      {sale.status === 'Pending' ? (
+                        <button
+                          type="button"
+                          className="mark-paid-button"
+                          onClick={() => handleMarkSaleAsPaid(sale)}
+                        >
+                          Mark as Paid
+                        </button>
+                      ) : (
+                        <span className="sale-paid-confirmation">✓ Paid</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -3689,7 +3860,8 @@ function SalesPage({
           </div>
         )}
       </section>
-    </div>
+      </div>
+    </>
   )
 }
 
@@ -4471,6 +4643,20 @@ function SettingsPage({
             </div>
 
             <div className="settings-form-grid">
+              <div className="settings-field settings-field-wide">
+                <label htmlFor="business-type">Business Type <span>Required</span></label>
+                <select
+                  id="business-type"
+                  name="businessType"
+                  value={settingsData.businessType}
+                  onChange={handleSettingsChange}
+                  required
+                >
+                  <option value="retail">Supermarket / Provision Store</option>
+                  <option value="wholesale">Wholesale / Distributor</option>
+                </select>
+              </div>
+
               <div className="settings-field settings-field-wide">
                 <label htmlFor="business-name">
                   Business Name <span>Required</span>

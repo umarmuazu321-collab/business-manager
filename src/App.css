@@ -387,7 +387,7 @@ td {
 
 .product-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr auto;
+  grid-template-columns: minmax(150px, 2fr) minmax(110px, 1fr) minmax(90px, 1fr) auto auto auto;
   align-items: center;
   gap: 20px;
   padding: 17px 0;
@@ -425,7 +425,16 @@ td {
 }
 
 .product-price {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   font-weight: 600;
+}
+
+.product-cost {
+  color: #7a857f;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .product-stock {
@@ -4222,4 +4231,95 @@ td {
   .expenses-summary-grid {
     gap: 8px;
   }
+}
+
+
+/* Printable sales receipt */
+.receipt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(7, 20, 15, 0.68);
+}
+.receipt-modal {
+  position: relative;
+  width: min(100%, 620px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 28px;
+  background: #fff;
+  color: #17231d;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+.receipt-heading { text-align: center; padding-bottom: 18px; border-bottom: 1px dashed #aab5ae; }
+.receipt-heading h2 { margin: 0 0 7px; color: #12372a; font-size: 23px; }
+.receipt-heading p { margin: 3px 0; color: #59665f; font-size: 13px; }
+.receipt-heading h3 { margin: 18px 0 0; letter-spacing: 2px; font-size: 15px; }
+.receipt-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 18px 0; font-size: 13px; }
+.receipt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.receipt-table th, .receipt-table td { padding: 11px 7px; border-bottom: 1px solid #e5eae7; text-align: right; }
+.receipt-table th:first-child, .receipt-table td:first-child { text-align: left; }
+.receipt-table th { background: #f4f7f5; color: #33443a; }
+.receipt-grand-total { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 16px 0; border-top: 2px solid #12372a; font-size: 17px; }
+.receipt-thank-you { margin: 18px 0 4px; text-align: center; color: #52645a; font-size: 13px; }
+.receipt-actions { display: flex; justify-content: center; gap: 12px; margin-top: 22px; }
+.receipt-actions button { min-width: 130px; min-height: 42px; }
+.receipt-overlay-close { position: absolute; top: 8px; right: 12px; border: 0; background: transparent; color: #56635c; font-size: 26px; cursor: pointer; }
+@media (max-width: 520px) {
+  .receipt-overlay { padding: 10px; }
+  .receipt-modal { padding: 22px 15px; max-height: calc(100vh - 20px); }
+  .receipt-meta { grid-template-columns: 1fr; gap: 8px; }
+  .receipt-table { font-size: 11px; }
+  .receipt-table th, .receipt-table td { padding: 9px 4px; }
+  .receipt-grand-total { font-size: 15px; }
+}
+
+
+.receipt-payment-status {
+  margin: 18px 0 4px;
+  padding: 13px 10px;
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: .6px;
+}
+.receipt-paid { color: #087443; background: #e8f7ee; }
+.receipt-pending { color: #a32626; background: #fff0ef; }
+.receipt-balance-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 13px;
+}
+.receipt-balance-due { color: #a32626; font-size: 15px; border-top: 1px dashed #d9aaa7; }
+@media print {
+  .receipt-payment-status { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+
+
+.mark-paid-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #e7f6ec;
+  color: #087443;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mark-paid-button:hover { background: #d2efdc; }
+.sale-paid-confirmation {
+  color: #087443;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
