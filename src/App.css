@@ -4232,3 +4232,49 @@ td {
     gap: 8px;
   }
 }
+
+
+/* Printable sales receipt */
+.receipt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  background: rgba(7, 20, 15, 0.68);
+}
+.receipt-modal {
+  position: relative;
+  width: min(100%, 620px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 28px;
+  background: #fff;
+  color: #17231d;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+.receipt-heading { text-align: center; padding-bottom: 18px; border-bottom: 1px dashed #aab5ae; }
+.receipt-heading h2 { margin: 0 0 7px; color: #12372a; font-size: 23px; }
+.receipt-heading p { margin: 3px 0; color: #59665f; font-size: 13px; }
+.receipt-heading h3 { margin: 18px 0 0; letter-spacing: 2px; font-size: 15px; }
+.receipt-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 18px 0; font-size: 13px; }
+.receipt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.receipt-table th, .receipt-table td { padding: 11px 7px; border-bottom: 1px solid #e5eae7; text-align: right; }
+.receipt-table th:first-child, .receipt-table td:first-child { text-align: left; }
+.receipt-table th { background: #f4f7f5; color: #33443a; }
+.receipt-grand-total { display: flex; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 16px 0; border-top: 2px solid #12372a; font-size: 17px; }
+.receipt-thank-you { margin: 18px 0 4px; text-align: center; color: #52645a; font-size: 13px; }
+.receipt-actions { display: flex; justify-content: center; gap: 12px; margin-top: 22px; }
+.receipt-actions button { min-width: 130px; min-height: 42px; }
+.receipt-overlay-close { position: absolute; top: 8px; right: 12px; border: 0; background: transparent; color: #56635c; font-size: 26px; cursor: pointer; }
+@media (max-width: 520px) {
+  .receipt-overlay { padding: 10px; }
+  .receipt-modal { padding: 22px 15px; max-height: calc(100vh - 20px); }
+  .receipt-meta { grid-template-columns: 1fr; gap: 8px; }
+  .receipt-table { font-size: 11px; }
+  .receipt-table th, .receipt-table td { padding: 9px 4px; }
+  .receipt-grand-total { font-size: 15px; }
+}
