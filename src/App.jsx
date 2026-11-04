@@ -1601,6 +1601,34 @@ function App() {
     setShowSaleForm(true)
   }
 
+  const handleMarkSaleAsPaid = async (sale) => {
+    if (!sale || sale.status !== 'Pending') return
+    const confirmed = window.confirm(`Confirm that ${sale.customer} has paid ₦${Number(sale.amount).toLocaleString()}?`)
+    if (!confirmed) return
+
+    const { data, error } = await supabase
+      .from('sales')
+      .update({ status: 'Paid' })
+      .eq('id', sale.id)
+      .eq('user_id', session.user.id)
+      .eq('status', 'Pending')
+      .select('id, customer, product, amount, status, created_at')
+      .single()
+
+    if (error) {
+      alert(`Could not update payment status: ${error.message}`)
+      return
+    }
+
+    setSales((current) => current.map((item) =>
+      item.id === sale.id ? mapSale(data) : item
+    ))
+    setReceiptData((current) =>
+      current?.id === sale.id ? { ...current, status: 'Paid' } : current
+    )
+    alert('Payment recorded. This sale is now marked as Paid.')
+  }
+
   const handleAddCustomer = async (event) => {
     event.preventDefault()
 
@@ -2257,6 +2285,7 @@ function App() {
             saleData={saleData}
             handleSaleChange={handleSaleChange}
             handleRecordSale={handleRecordSale}
+            handleMarkSaleAsPaid={handleMarkSaleAsPaid}
             receiptData={receiptData}
             onCloseReceipt={() => setReceiptData(null)}
             businessSettings={businessSettings}
@@ -3479,6 +3508,7 @@ function SalesPage({
   saleData,
   handleSaleChange,
   handleRecordSale,
+  handleMarkSaleAsPaid,
   receiptData,
   onCloseReceipt,
   businessSettings,
