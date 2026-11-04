@@ -3801,6 +3801,7 @@ function SalesPage({
                   <th>Amount</th>
                   <th>Payment Status</th>
                   <th>Date / Time</th>
+                  <th>Action</th>
                 </tr>
               </thead>
 
@@ -3838,6 +3839,19 @@ function SalesPage({
                       <span className="sales-date">
                         {formatSaleDate(sale.createdAt)}
                       </span>
+                    </td>
+                    <td data-label="Action">
+                      {sale.status === 'Pending' ? (
+                        <button
+                          type="button"
+                          className="mark-paid-button"
+                          onClick={() => handleMarkSaleAsPaid(sale)}
+                        >
+                          Mark as Paid
+                        </button>
+                      ) : (
+                        <span className="sale-paid-confirmation">✓ Paid</span>
+                      )}
                     </td>
                   </tr>
                 ))}
