@@ -98,6 +98,7 @@ const initialExpenses = [
 const defaultBusinessSettings = {
   businessName: 'Business Manager',
   ownerName: 'Business Owner',
+  businessType: 'retail',
   phone: '',
   email: '',
   address: '',
@@ -119,6 +120,8 @@ const mapProduct = (product) => ({
   name: product.name,
   category: product.category,
   purchasePrice: Number(product.purchase_price || 0),
+  wholesalePrice: Number(product.wholesale_price || 0),
+  baseUnit: product.base_unit || 'piece',
   price: Number(product.price),
   stock: Number(product.stock),
 })
@@ -158,6 +161,7 @@ const mapExpense = (expense) => ({
 const mapBusinessSettings = (settings) => ({
   businessName: settings.business_name,
   ownerName: settings.owner_name,
+  businessType: settings.business_type || 'retail',
   phone: settings.phone || '',
   email: settings.email || '',
   address: settings.address || '',
@@ -682,6 +686,8 @@ function App() {
     name: '',
     category: '',
     purchasePrice: '',
+    wholesalePrice: '',
+    baseUnit: 'piece',
     price: '',
     stock: '',
   })
@@ -990,7 +996,7 @@ function App() {
       const { data, error } = await supabase
         .from('business_settings')
         .select(
-          'id, business_name, owner_name, phone, email, address, created_at, updated_at',
+          'id, business_name, owner_name, business_type, phone, email, address, created_at, updated_at',
         )
         .eq('user_id', session.user.id)
         .maybeSingle()
@@ -1229,6 +1235,7 @@ function App() {
         phone: settingsData.phone.trim(),
         email: settingsData.email.trim(),
         address: settingsData.address.trim(),
+        business_type: settingsData.businessType,
       })
       .eq('user_id', session.user.id)
       .select(
@@ -1359,6 +1366,8 @@ function App() {
       name,
       category,
       purchase_price: purchasePrice,
+      wholesale_price: Number(formData.wholesalePrice || 0),
+      base_unit: formData.baseUnit,
       price,
       stock,
     }
@@ -1369,7 +1378,7 @@ function App() {
           .update(productValues)
           .eq('id', editingProductId)
           .eq('user_id', session.user.id)
-          .select('id, name, category, purchase_price, price, stock')
+          .select('id, name, category, purchase_price, wholesale_price, base_unit, price, stock')
           .single()
       : await supabase
           .from('products')
@@ -1397,6 +1406,8 @@ function App() {
       name: '',
       category: '',
       purchasePrice: '',
+      wholesalePrice: '',
+      baseUnit: 'piece',
       price: '',
       stock: '',
     })
@@ -1409,6 +1420,8 @@ function App() {
       name: product.name,
       category: product.category,
       purchasePrice: String(product.purchasePrice || ''),
+      wholesalePrice: String(product.wholesalePrice || ''),
+      baseUnit: product.baseUnit || 'piece',
       price: String(product.price),
       stock: String(product.stock),
     })
@@ -2898,7 +2911,39 @@ function ProductsPage({
           </div>
 
           <div>
-            <label htmlFor="product-price">Selling Price (₦)</label>
+            <label htmlFor="product-wholesale-price">Wholesale Price (₦)</label>
+            <input
+              id="product-wholesale-price"
+              name="wholesalePrice"
+              type="number"
+              min="0"
+              value={formData.wholesalePrice}
+              onChange={handleChange}
+              placeholder="Optional wholesale price"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-base-unit">Stock Unit</label>
+            <select
+              id="product-base-unit"
+              name="baseUnit"
+              value={formData.baseUnit}
+              onChange={handleChange}
+            >
+              <option value="piece">Piece</option>
+              <option value="pack">Pack</option>
+              <option value="carton">Carton</option>
+              <option value="bag">Bag</option>
+              <option value="bottle">Bottle</option>
+              <option value="crate">Crate</option>
+              <option value="kg">Kilogram (kg)</option>
+              <option value="litre">Litre</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="product-price">Retail Selling Price (₦)</label>
 
             <input
               id="product-price"
@@ -4426,6 +4471,20 @@ function SettingsPage({
             </div>
 
             <div className="settings-form-grid">
+              <div className="settings-field settings-field-wide">
+                <label htmlFor="business-type">Business Type <span>Required</span></label>
+                <select
+                  id="business-type"
+                  name="businessType"
+                  value={settingsData.businessType}
+                  onChange={handleSettingsChange}
+                  required
+                >
+                  <option value="retail">Supermarket / Provision Store</option>
+                  <option value="wholesale">Wholesale / Distributor</option>
+                </select>
+              </div>
+
               <div className="settings-field settings-field-wide">
                 <label htmlFor="business-name">
                   Business Name <span>Required</span>
