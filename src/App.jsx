@@ -118,6 +118,7 @@ const mapProduct = (product) => ({
   id: product.id,
   name: product.name,
   category: product.category,
+  purchasePrice: Number(product.purchase_price || 0),
   price: Number(product.price),
   stock: Number(product.stock),
 })
@@ -680,9 +681,11 @@ function App() {
   const [formData, setFormData] = useState({
     name: '',
     category: '',
+    purchasePrice: '',
     price: '',
     stock: '',
   })
+  const [editingProductId, setEditingProductId] = useState(null)
 
   const [saleData, setSaleData] = useState({
     customer: '',
@@ -831,43 +834,12 @@ function App() {
 
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, category, price, stock, created_at')
+        .select('id, name, category, purchase_price, price, stock, created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: true })
 
       if (error) {
         await recoverFromDataError(error, 'Could not load products')
-        setProductLoading(false)
-        return
-      }
-
-      if (data.length === 0) {
-        const seedProducts = initialProducts.map((product) => ({
-          name: product.name,
-          category: product.category,
-          price: product.price,
-          stock: product.stock,
-        }))
-
-        const {
-          data: insertedProducts,
-          error: seedError,
-        } = await supabase
-          .from('products')
-          .insert(seedProducts)
-          .select('id, name, category, price, stock, created_at')
-
-        if (seedError) {
-          await recoverFromDataError(
-            seedError,
-            'Could not create starter products',
-          )
-
-          setProductLoading(false)
-          return
-        }
-
-        setProducts(insertedProducts.map(mapProduct))
         setProductLoading(false)
         return
       }
@@ -1490,6 +1462,7 @@ function App() {
 
     const name = formData.name.trim()
     const category = formData.category.trim()
+    const purchasePrice = Number(formData.purchasePrice || 0)
     const price = Number(formData.price)
     const stock = Number(formData.stock)
 
@@ -1498,6 +1471,8 @@ function App() {
       !category ||
       formData.price === '' ||
       formData.stock === '' ||
+      !Number.isFinite(purchasePrice) ||
+      purchasePrice < 0 ||
       !Number.isFinite(price) ||
       price < 0 ||
       !Number.isFinite(stock) ||
@@ -1507,37 +1482,92 @@ function App() {
       return
     }
 
-    const { data, error } = await supabase
-      .from('products')
-      .insert({
-        name,
-        category,
-        price,
-        stock,
-      })
-      .select('id, name, category, price, stock')
-      .single()
+    const productValues = {
+      name,
+      category,
+      purchase_price: purchasePrice,
+      price,
+      stock,
+    }
+
+    const result = editingProductId
+      ? await supabase
+          .from('products')
+          .update(productValues)
+          .eq('id', editingProductId)
+          .eq('user_id', session.user.id)
+          .select('id, name, category, purchase_price, price, stock')
+          .single()
+      : await supabase
+          .from('products')
+          .insert(productValues)
+          .select('id, name, category, purchase_price, price, stock')
+          .single()
+
+    const { data, error } = result
 
     if (error) {
       console.error('Could not save product:', error)
-
       alert(`Could not save product: ${error.message}`)
       return
     }
 
-    setProducts((current) => [
-      ...current,
-      mapProduct(data),
-    ])
+    setProducts((current) =>
+      editingProductId
+        ? current.map((product) =>
+            product.id === editingProductId ? mapProduct(data) : product,
+          )
+        : [...current, mapProduct(data)],
+    )
 
     setFormData({
       name: '',
       category: '',
+      purchasePrice: '',
       price: '',
       stock: '',
     })
-
+    setEditingProductId(null)
     setShowProductForm(false)
+  }
+
+  const handleEditProduct = (product) => {
+    setFormData({
+      name: product.name,
+      category: product.category,
+      purchasePrice: String(product.purchasePrice || ''),
+      price: String(product.price),
+      stock: String(product.stock),
+    })
+    setEditingProductId(product.id)
+    setShowProductForm(true)
+  }
+
+  const handleRestockProduct = async (product) => {
+    const quantityInput = window.prompt(`How many units of ${product.name} are being added?`)
+    if (quantityInput === null) return
+    const quantity = Number(quantityInput)
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      alert('Enter a whole number greater than zero.')
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('products')
+      .update({ stock: product.stock + quantity })
+      .eq('id', product.id)
+      .eq('user_id', session.user.id)
+      .select('id, name, category, purchase_price, price, stock')
+      .single()
+
+    if (error) {
+      alert(`Could not update stock: ${error.message}`)
+      return
+    }
+
+    setProducts((current) =>
+      current.map((item) => item.id === product.id ? mapProduct(data) : item),
+    )
   }
 
   /*
@@ -2318,6 +2348,11 @@ function App() {
             formData={formData}
             handleChange={handleChange}
             handleAddProduct={handleAddProduct}
+            handleEditProduct={handleEditProduct}
+            handleRestockProduct={handleRestockProduct}
+            editingProductId={editingProductId}
+            setEditingProductId={setEditingProductId}
+            setFormData={setFormData}
             handleDeleteProduct={handleDeleteProduct}
             loading={productLoading}
           />
@@ -2912,6 +2947,11 @@ function ProductsPage({
   formData,
   handleChange,
   handleAddProduct,
+  handleEditProduct,
+  handleRestockProduct,
+  editingProductId,
+  setEditingProductId,
+  setFormData,
   handleDeleteProduct,
   loading,
 }) {
@@ -2970,7 +3010,20 @@ function ProductsPage({
           </div>
 
           <div>
-            <label htmlFor="product-price">Price (₦)</label>
+            <label htmlFor="product-purchase-price">Purchase Price (₦)</label>
+            <input
+              id="product-purchase-price"
+              name="purchasePrice"
+              type="number"
+              min="0"
+              value={formData.purchasePrice}
+              onChange={handleChange}
+              placeholder="e.g. 40000"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="product-price">Selling Price (₦)</label>
 
             <input
               id="product-price"
@@ -3003,8 +3056,21 @@ function ProductsPage({
             type="submit"
             className="save-product-button"
           >
-            Save Product
+            {editingProductId ? 'Update Product' : 'Save Product'}
           </button>
+          {editingProductId && (
+            <button
+              type="button"
+              className="delete-button"
+              onClick={() => {
+                setEditingProductId(null)
+                setFormData({ name: '', category: '', purchasePrice: '', price: '', stock: '' })
+                setShowForm(false)
+              }}
+            >
+              Cancel Edit
+            </button>
+          )}
         </form>
       )}
 
@@ -3079,12 +3145,23 @@ function ProductsPage({
                 </div>
 
                 <button
+                  type="button"
+                  className="save-product-button"
+                  onClick={() => handleRestockProduct(product)}
+                >
+                  Restock
+                </button>
+                <button
+                  type="button"
+                  className="save-product-button"
+                  onClick={() => handleEditProduct(product)}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
                   className="delete-button"
-                  onClick={() =>
-                    handleDeleteProduct(
-                      product.id,
-                    )
-                  }
+                  onClick={() => handleDeleteProduct(product.id)}
                 >
                   Delete
                 </button>
