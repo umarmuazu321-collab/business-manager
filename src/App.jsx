@@ -1598,7 +1598,7 @@ function App() {
       return updated ? mapProduct(updated.data) : product
     }))
     setSaleData({ customer: '', productId: '', quantity: '1', status: 'Paid' })
-    setShowSaleForm(false)
+    setShowSaleForm(true)
   }
 
   const handleAddCustomer = async (event) => {
@@ -3391,6 +3391,14 @@ function SalesCartForm({ products, saleData, handleSaleChange, handleRecordSale 
 }
 
 function ReceiptModal({ receipt, business, onClose }) {
+  useEffect(() => {
+    window.history.pushState({ receiptOpen: true }, '')
+    const handleBack = () => onClose()
+    window.addEventListener('popstate', handleBack)
+    return () => window.removeEventListener('popstate', handleBack)
+  }, [onClose])
+
+  const handleReceiptBack = () => window.history.back()
   const formatMoney = (value) => '₦' + Number(value || 0).toLocaleString('en-NG')
   const receiptNumber = String(receipt.id || '').slice(0, 8).toUpperCase()
   const receiptDate = new Date(receipt.createdAt).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })
@@ -3437,9 +3445,9 @@ function ReceiptModal({ receipt, business, onClose }) {
         </div>
         <div className="receipt-actions">
           <button type="button" className="save-product-button" onClick={() => window.print()}>Print Receipt</button>
-          <button type="button" className="delete-button" onClick={onClose}>Close</button>
+          <button type="button" className="delete-button" onClick={handleReceiptBack}>← Back to Sales</button>
         </div>
-        <button type="button" className="receipt-overlay-close" onClick={onClose} aria-label="Close receipt">×</button>
+        <button type="button" className="receipt-overlay-close" onClick={handleReceiptBack} aria-label="Back to sales">×</button>
       </div>
     </div>
   )
@@ -3641,6 +3649,7 @@ function SalesPage({
 
       {showForm && (
         <SalesCartForm
+          key={receiptData?.id || 'new-sale'}
           products={products}
           saleData={saleData}
           handleSaleChange={handleSaleChange}
