@@ -659,6 +659,7 @@ function App() {
 
   const [sales, setSales] = useState([])
   const [salesLoading, setSalesLoading] = useState(false)
+  const [receiptData, setReceiptData] = useState(null)
 
   const [customers, setCustomers] = useState([])
   const [customerLoading, setCustomerLoading] = useState(false)
@@ -1578,6 +1579,20 @@ function App() {
     }
 
     setSales((current) => [mapSale(insertedSale), ...current])
+    setReceiptData({
+      id: insertedSale.id,
+      customer,
+      amount: saleAmount,
+      status: saleData.status,
+      createdAt: insertedSale.created_at || new Date().toISOString(),
+      items: saleLines.map((line) => ({
+        name: line.product.name,
+        unit: line.unitLabel,
+        quantity: line.quantity,
+        unitPrice: line.product.price * (line.item.saleUnit === 'half' ? 0.5 : 1),
+        total: line.product.price * (line.item.saleUnit === 'half' ? 0.5 : 1) * line.quantity,
+      })),
+    })
     setProducts((current) => current.map((product) => {
       const updated = updatedProducts.find((entry) => entry.id === product.id)
       return updated ? mapProduct(updated.data) : product
@@ -2242,6 +2257,9 @@ function App() {
             saleData={saleData}
             handleSaleChange={handleSaleChange}
             handleRecordSale={handleRecordSale}
+            receiptData={receiptData}
+            onCloseReceipt={() => setReceiptData(null)}
+            businessSettings={businessSettings}
             loading={salesLoading}
           />
         )}
@@ -3074,6 +3092,61 @@ function ProductsPage({
 }
 
 /*
+function ReceiptModal({ receipt, business, onClose }) {
+  const formatMoney = (value) => '₦' + Number(value || 0).toLocaleString('en-NG')
+  const receiptNumber = String(receipt.id || '').slice(0, 8).toUpperCase()
+  const receiptDate = new Date(receipt.createdAt).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' })
+
+  return (
+    <div className="receipt-overlay" role="dialog" aria-modal="true" aria-label="Sales receipt">
+      <style>{`
+        @media print {
+          @page { size: auto; margin: 12mm; }
+          body * { visibility: hidden !important; }
+          .receipt-print-area, .receipt-print-area * { visibility: visible !important; }
+          .receipt-print-area { position: absolute !important; inset: 0 auto auto 0 !important; width: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; background: #fff !important; color: #111 !important; }
+          .receipt-actions, .receipt-overlay-close { display: none !important; }
+        }
+      `}</style>
+      <div className="receipt-modal">
+        <div className="receipt-print-area">
+          <div className="receipt-heading">
+            <h2>{business?.businessName || 'Business Manager'}</h2>
+            {business?.address && <p>{business.address}</p>}
+            {business?.phone && <p>Phone: {business.phone}</p>}
+            {business?.email && <p>{business.email}</p>}
+            <h3>SALES RECEIPT</h3>
+          </div>
+          <div className="receipt-meta">
+            <span><strong>Receipt No:</strong> {receiptNumber}</span>
+            <span><strong>Date:</strong> {receiptDate}</span>
+            <span><strong>Customer:</strong> {receipt.customer}</span>
+            <span><strong>Payment:</strong> {receipt.status}</span>
+          </div>
+          <table className="receipt-table">
+            <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+            <tbody>
+              {receipt.items.map((item, index) => (
+                <tr key={index}>
+                  <td>{item.name} ({item.unit})</td><td>{item.quantity}</td>
+                  <td>{formatMoney(item.unitPrice)}</td><td>{formatMoney(item.total)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="receipt-grand-total"><strong>GRAND TOTAL</strong><strong>{formatMoney(receipt.amount)}</strong></div>
+          <p className="receipt-thank-you">Thank you for your patronage!</p>
+        </div>
+        <div className="receipt-actions">
+          <button type="button" className="save-product-button" onClick={() => window.print()}>Print Receipt</button>
+          <button type="button" className="delete-button" onClick={onClose}>Close</button>
+        </div>
+        <button type="button" className="receipt-overlay-close" onClick={onClose} aria-label="Close receipt">×</button>
+      </div>
+    </div>
+  )
+}
+
 function SalesPage({
   products,
   sales,
@@ -3380,6 +3453,9 @@ function SalesPage({
   saleData,
   handleSaleChange,
   handleRecordSale,
+  receiptData,
+  onCloseReceipt,
+  businessSettings,
   loading,
 }) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -3493,7 +3569,9 @@ function SalesPage({
   }
 
   return (
-    <div className="sales-page">
+    <>
+      {receiptData && <ReceiptModal receipt={receiptData} business={businessSettings} onClose={onCloseReceipt} />}
+      <div className="sales-page">
       <header className="topbar">
         <div>
           <h2>Sales</h2>
@@ -3711,7 +3789,8 @@ function SalesPage({
           </div>
         )}
       </section>
-    </div>
+      </div>
+    </>
   )
 }
 
