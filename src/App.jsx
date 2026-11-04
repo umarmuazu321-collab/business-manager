@@ -2966,7 +2966,7 @@ function ProductsPage({
               className="delete-button"
               onClick={() => {
                 setEditingProductId(null)
-                setFormData({ name: '', category: '', purchasePrice: '', wholesalePrice: '', baseUnit: 'piece', price: '', stock: '' })
+                setFormData({ name: '', category: '', purchasePrice: '', baseUnit: 'piece', price: '', stock: '' })
                 setShowForm(false)
               }}
             >
