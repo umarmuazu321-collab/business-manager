@@ -4278,3 +4278,28 @@ td {
   .receipt-table th, .receipt-table td { padding: 9px 4px; }
   .receipt-grand-total { font-size: 15px; }
 }
+
+
+.receipt-payment-status {
+  margin: 18px 0 4px;
+  padding: 13px 10px;
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: .6px;
+}
+.receipt-paid { color: #087443; background: #e8f7ee; }
+.receipt-pending { color: #a32626; background: #fff0ef; }
+.receipt-balance-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 13px;
+}
+.receipt-balance-due { color: #a32626; font-size: 15px; border-top: 1px dashed #d9aaa7; }
+@media print {
+  .receipt-payment-status { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
