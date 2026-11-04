@@ -3429,11 +3429,14 @@ function ReceiptModal({ receipt, business, onClose }) {
             {business?.email && <p>{business.email}</p>}
             <h3>SALES RECEIPT</h3>
           </div>
+          <div className={`receipt-payment-status ${receipt.status === 'Paid' ? 'receipt-paid' : 'receipt-pending'}`}>
+            {receipt.status === 'Paid' ? 'PAID — CASH' : 'NOT PAID — PAYMENT PENDING'}
+          </div>
           <div className="receipt-meta">
             <span><strong>Receipt No:</strong> {receiptNumber}</span>
             <span><strong>Date:</strong> {receiptDate}</span>
             <span><strong>Customer:</strong> {receipt.customer}</span>
-            <span><strong>Payment:</strong> {receipt.status}</span>
+            <span><strong>Payment Status:</strong> {receipt.status === 'Paid' ? 'Paid in cash' : 'Unpaid — pay later'}</span>
           </div>
           <table className="receipt-table">
             <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
@@ -3447,7 +3450,16 @@ function ReceiptModal({ receipt, business, onClose }) {
             </tbody>
           </table>
           <div className="receipt-grand-total"><strong>GRAND TOTAL</strong><strong>{formatMoney(receipt.amount)}</strong></div>
-          <p className="receipt-thank-you">Thank you for your patronage!</p>
+          <div className="receipt-balance-row">
+            <span>{receipt.status === 'Paid' ? 'Amount Paid' : 'Amount Paid'}</span>
+            <strong>{formatMoney(receipt.status === 'Paid' ? receipt.amount : 0)}</strong>
+          </div>
+          {receipt.status === 'Pending' && (
+            <div className="receipt-balance-row receipt-balance-due">
+              <span>Balance Due</span><strong>{formatMoney(receipt.amount)}</strong>
+            </div>
+          )}
+          <p className="receipt-thank-you">{receipt.status === 'Paid' ? 'Thank you for your payment!' : 'Please keep this receipt and pay the outstanding balance on your next visit.'}</p>
         </div>
         <div className="receipt-actions">
           <button type="button" className="save-product-button" onClick={() => window.print()}>Print Receipt</button>
