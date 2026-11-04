@@ -1478,46 +1478,68 @@ function App() {
    * STAGE 11.3
    * Record sale in Supabase and update product stock.
    */
-  const handleRecordSale = async (event) => {
+  const handleRecordSale = async (event, cartItems = []) => {
     event.preventDefault()
 
-    const selectedProduct = products.find(
-      (product) =>
-        String(product.id) === String(saleData.productId),
-    )
-
-    const quantity = Number(saleData.quantity)
     const customer = saleData.customer.trim()
-
-    if (
-      !customer ||
-      !selectedProduct ||
-      !Number.isFinite(quantity) ||
-      !Number.isInteger(quantity) ||
-      quantity < 1 ||
-      !['Paid', 'Pending'].includes(saleData.status)
-    ) {
+    if (!customer || !Array.isArray(cartItems) || cartItems.length === 0 ||
+        !['Paid', 'Pending'].includes(saleData.status)) {
+      alert('Add at least one product to the cart before recording the sale.')
       return
     }
 
-    if (quantity > selectedProduct.stock) {
-      alert(
-        `Only ${selectedProduct.stock} units are available.`,
-      )
+    const saleLines = cartItems.map((item) => {
+      const product = products.find((entry) => String(entry.id) === String(item.productId))
+      const quantity = Number(item.quantity)
+      const isHalfUnit = item.saleUnit === 'half'
+      const stockToDeduct = quantity * (isHalfUnit ? 0.5 : 1)
+      const unitLabel = isHalfUnit ? `Half ${product?.baseUnit || 'unit'}` : (product?.baseUnit || 'unit')
+      return { product, quantity, stockToDeduct, unitLabel, item }
+    })
+
+    if (saleLines.some((line) =>
+      !line.product || !Number.isInteger(line.quantity) || line.quantity < 1 ||
+      (line.item.saleUnit === 'half' && !['carton', 'bag'].includes(line.product.baseUnit)) ||
+      line.stockToDeduct > line.product.stock
+    )) {
+      alert('One or more cart items have invalid quantities or insufficient stock. Please review the cart.')
       return
     }
 
-    const saleAmount = selectedProduct.price * quantity
+    const saleAmount = saleLines.reduce((total, line) => {
+      const unitPrice = line.product.price * (line.item.saleUnit === 'half' ? 0.5 : 1)
+      return total + unitPrice * line.quantity
+    }, 0)
 
-    const saleProductName =
-      quantity > 1
-        ? `${selectedProduct.name} × ${quantity}`
-        : selectedProduct.name
+    const saleProductName = saleLines.map((line) =>
+      `${line.product.name} (${line.unitLabel} × ${line.quantity})`
+    ).join(', ')
 
-    const {
-      data: insertedSale,
-      error: saleError,
-    } = await supabase
+    const updatedProducts = []
+    for (const line of saleLines) {
+      const newStock = Number((line.product.stock - line.stockToDeduct).toFixed(2))
+      const { data, error } = await supabase
+        .from('products')
+        .update({ stock: newStock })
+        .eq('id', line.product.id)
+        .eq('user_id', session.user.id)
+        .select('id, name, category, purchase_price, base_unit, price, stock')
+        .single()
+
+      if (error) {
+        for (const previous of updatedProducts) {
+          await supabase.from('products')
+            .update({ stock: previous.oldStock })
+            .eq('id', previous.id)
+            .eq('user_id', session.user.id)
+        }
+        alert(`Could not update stock for ${line.product.name}: ${error.message}. No sale was recorded.`)
+        return
+      }
+      updatedProducts.push({ id: line.product.id, oldStock: line.product.stock, data })
+    }
+
+    const { data: insertedSale, error: saleError } = await supabase
       .from('sales')
       .insert({
         customer,
@@ -1529,66 +1551,22 @@ function App() {
       .single()
 
     if (saleError) {
-      console.error('Could not save sale:', saleError)
-
-      alert(`Could not save sale: ${saleError.message}`)
+      for (const previous of updatedProducts) {
+        await supabase.from('products')
+          .update({ stock: previous.oldStock })
+          .eq('id', previous.id)
+          .eq('user_id', session.user.id)
+      }
+      alert(`Could not save sale: ${saleError.message}. Stock changes were rolled back.`)
       return
     }
 
-    const newStock =
-      selectedProduct.stock - quantity
-
-    const {
-      data: updatedProduct,
-      error: stockError,
-    } = await supabase
-      .from('products')
-      .update({
-        stock: newStock,
-      })
-      .eq('id', selectedProduct.id)
-      .eq('user_id', session.user.id)
-      .select('id, name, category, purchase_price, base_unit, price, stock')
-      .single()
-
-    if (stockError) {
-      console.error(
-        'Could not update product stock:',
-        stockError,
-      )
-
-      await supabase
-        .from('sales')
-        .delete()
-        .eq('id', insertedSale.id)
-        .eq('user_id', session.user.id)
-
-      alert(
-        `Could not update product stock: ${stockError.message}`,
-      )
-      return
-    }
-
-    setSales((current) => [
-      mapSale(insertedSale),
-      ...current,
-    ])
-
-    setProducts((current) =>
-      current.map((product) =>
-        product.id === selectedProduct.id
-          ? mapProduct(updatedProduct)
-          : product,
-      ),
-    )
-
-    setSaleData({
-      customer: '',
-      productId: '',
-      quantity: '1',
-      status: 'Paid',
-    })
-
+    setSales((current) => [mapSale(insertedSale), ...current])
+    setProducts((current) => current.map((product) => {
+      const updated = updatedProducts.find((entry) => entry.id === product.id)
+      return updated ? mapProduct(updated.data) : product
+    }))
+    setSaleData({ customer: '', productId: '', quantity: '1', status: 'Paid' })
     setShowSaleForm(false)
   }
 
@@ -3046,7 +3024,7 @@ function ProductsPage({
                         : 'product-stock'
                   }
                 >
-                  {product.stock} in stock
+                  {product.stock % 1 === 0.5 ? `${Math.floor(product.stock)}½ ${product.baseUnit || 'units'}` : `${product.stock} ${product.baseUnit || 'units'}`} in stock
                 </div>
 
                 <button
@@ -3259,6 +3237,125 @@ function SalesPage({
 
 */
 
+function SalesCartForm({ products, saleData, handleSaleChange, handleRecordSale }) {
+  const [selectedProductId, setSelectedProductId] = useState('')
+  const [saleUnit, setSaleUnit] = useState('full')
+  const [quantity, setQuantity] = useState('1')
+  const [cart, setCart] = useState([])
+
+  const selectedProduct = products.find((product) => String(product.id) === String(selectedProductId))
+  const canSellHalf = ['carton', 'bag'].includes(selectedProduct?.baseUnit)
+  const unitName = selectedProduct?.baseUnit || 'unit'
+  const selectedFactor = saleUnit === 'half' && canSellHalf ? 0.5 : 1
+  const availableStock = selectedProduct ? Number(selectedProduct.stock || 0) : 0
+  const linePrice = selectedProduct ? selectedProduct.price * selectedFactor * Number(quantity || 0) : 0
+  const cartTotal = cart.reduce((sum, item) => {
+    const product = products.find((entry) => String(entry.id) === String(item.productId))
+    return sum + (product ? product.price * (item.saleUnit === 'half' ? 0.5 : 1) * item.quantity : 0)
+  }, 0)
+
+  const addToCart = () => {
+    const count = Number(quantity)
+    if (!selectedProduct || !Number.isInteger(count) || count < 1) return
+    const factor = saleUnit === 'half' && canSellHalf ? 0.5 : 1
+    const alreadyInCart = cart.filter((item) => String(item.productId) === String(selectedProduct.id))
+      .reduce((sum, item) => sum + item.quantity * (item.saleUnit === 'half' ? 0.5 : 1), 0)
+    if (alreadyInCart + count * factor > availableStock) {
+      alert(`Not enough stock. Available: ${availableStock} ${unitName}.`)
+      return
+    }
+    setCart((current) => [...current, { productId: selectedProduct.id, saleUnit: factor === 0.5 ? 'half' : 'full', quantity: count }])
+    setSelectedProductId('')
+    setSaleUnit('full')
+    setQuantity('1')
+  }
+
+  const removeCartItem = (index) => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))
+
+  const formatMoney = (value) => '₦' + Number(value || 0).toLocaleString()
+  const describeUnit = (product, item) => item.saleUnit === 'half'
+    ? `Half ${product.baseUnit}`
+    : product.baseUnit
+
+  return (
+    <form className="sale-form sales-record-form" onSubmit={(event) => handleRecordSale(event, cart)}>
+      <div>
+        <label htmlFor="sale-customer">Customer Name</label>
+        <input id="sale-customer" name="customer" value={saleData.customer}
+          onChange={handleSaleChange} placeholder="e.g. John Ibrahim" required />
+      </div>
+
+      <div>
+        <label htmlFor="sale-product">Product</label>
+        <select id="sale-product" value={selectedProductId}
+          onChange={(event) => { setSelectedProductId(event.target.value); setSaleUnit('full') }}>
+          <option value="">Select a product</option>
+          {products.filter((product) => product.stock > 0).map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name} — {product.stock} {product.baseUnit || 'units'} available
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedProduct && (
+        <>
+          <div>
+            <label htmlFor="sale-unit">Sale Unit</label>
+            <select id="sale-unit" value={saleUnit} onChange={(event) => setSaleUnit(event.target.value)}>
+              <option value="full">Full {unitName}</option>
+              {canSellHalf && <option value="half">Half {unitName}</option>}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="sale-quantity">Quantity</label>
+            <input id="sale-quantity" type="number" min="1" step="1" value={quantity}
+              onChange={(event) => setQuantity(event.target.value)} />
+          </div>
+          <div>
+            <label>Line Total</label>
+            <strong>{formatMoney(linePrice)}</strong>
+          </div>
+          <button type="button" className="save-product-button" onClick={addToCart}>Add to Cart</button>
+        </>
+      )}
+
+      <div className="sales-cart" style={{ gridColumn: '1 / -1', border: '1px solid #e2e8e5', borderRadius: '12px', padding: '16px' }}>
+        <h3 style={{ marginTop: 0 }}>Cart ({cart.length} items)</h3>
+        {cart.length === 0 ? <p>No items added yet.</p> : (
+          <div style={{ display: 'grid', gap: '10px' }}>
+            {cart.map((item, index) => {
+              const product = products.find((entry) => String(entry.id) === String(item.productId))
+              if (!product) return null
+              const amount = product.price * (item.saleUnit === 'half' ? 0.5 : 1) * item.quantity
+              return (
+                <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <span>{product.name} — {describeUnit(product, item)} × {item.quantity}</span>
+                  <strong>{formatMoney(amount)}</strong>
+                  <button type="button" className="delete-button" onClick={() => removeCartItem(index)}>Remove</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #e2e8e5' }}>
+          <strong>Grand Total</strong><strong>{formatMoney(cartTotal)}</strong>
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="sale-status">Payment Status</label>
+        <select id="sale-status" name="status" value={saleData.status} onChange={handleSaleChange}>
+          <option value="Paid">Paid</option>
+          <option value="Pending">Pending</option>
+        </select>
+      </div>
+
+      <button type="submit" className="save-product-button" disabled={cart.length === 0}>Record Sale</button>
+    </form>
+  )
+}
+
 function SalesPage({
   products,
   sales,
@@ -3449,85 +3546,12 @@ function SalesPage({
       </section>
 
       {showForm && (
-        <form
-          className="sale-form sales-record-form"
-          onSubmit={handleRecordSale}
-        >
-          <div>
-            <label htmlFor="sale-customer">Customer Name</label>
-
-            <input
-              id="sale-customer"
-              name="customer"
-              value={saleData.customer}
-              onChange={handleSaleChange}
-              placeholder="e.g. John Ibrahim"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="sale-product">Product</label>
-
-            <select
-              id="sale-product"
-              name="productId"
-              value={saleData.productId}
-              onChange={handleSaleChange}
-              required
-            >
-              <option value="">Select a product</option>
-
-              {products
-                .filter(
-                  (product) => product.stock > 0,
-                )
-                .map((product) => (
-                  <option
-                    key={product.id}
-                    value={product.id}
-                  >
-                    {product.name} — {product.stock} available
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="sale-quantity">Quantity</label>
-
-            <input
-              id="sale-quantity"
-              name="quantity"
-              type="number"
-              min="1"
-              value={saleData.quantity}
-              onChange={handleSaleChange}
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="sale-status">Payment Status</label>
-
-            <select
-              id="sale-status"
-              name="status"
-              value={saleData.status}
-              onChange={handleSaleChange}
-            >
-              <option value="Paid">Paid</option>
-              <option value="Pending">Pending</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            className="save-product-button"
-          >
-            Record Sale
-          </button>
-        </form>
+        <SalesCartForm
+          products={products}
+          saleData={saleData}
+          handleSaleChange={handleSaleChange}
+          handleRecordSale={handleRecordSale}
+        />
       )}
 
       <section className="products-card sales-history-card">
