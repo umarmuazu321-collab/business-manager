@@ -4303,3 +4303,23 @@ td {
 @media print {
   .receipt-payment-status { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+
+
+.mark-paid-button {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #e7f6ec;
+  color: #087443;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mark-paid-button:hover { background: #d2efdc; }
+.sale-paid-confirmation {
+  color: #087443;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
