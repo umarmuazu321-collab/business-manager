@@ -1515,28 +1515,44 @@ function App() {
       `${line.product.name} (${line.unitLabel} × ${line.quantity})`
     ).join(', ')
 
-    const updatedProducts = []
+    const stockChanges = new Map()
     for (const line of saleLines) {
-      const newStock = Number((line.product.stock - line.stockToDeduct).toFixed(2))
+      const key = String(line.product.id)
+      const existing = stockChanges.get(key)
+      stockChanges.set(key, {
+        product: line.product,
+        stockToDeduct: (existing?.stockToDeduct || 0) + line.stockToDeduct,
+      })
+    }
+
+    const updatedProducts = []
+    for (const { product, stockToDeduct } of stockChanges.values()) {
+      if (stockToDeduct > product.stock) {
+        alert(`Not enough stock for ${product.name}. Available: ${product.stock} ${product.baseUnit}.`)
+        for (const previous of updatedProducts) {
+          await supabase.from('products').update({ stock: previous.oldStock })
+            .eq('id', previous.id).eq('user_id', session.user.id)
+        }
+        return
+      }
+      const newStock = Number((product.stock - stockToDeduct).toFixed(2))
       const { data, error } = await supabase
         .from('products')
         .update({ stock: newStock })
-        .eq('id', line.product.id)
+        .eq('id', product.id)
         .eq('user_id', session.user.id)
         .select('id, name, category, purchase_price, base_unit, price, stock')
         .single()
 
       if (error) {
         for (const previous of updatedProducts) {
-          await supabase.from('products')
-            .update({ stock: previous.oldStock })
-            .eq('id', previous.id)
-            .eq('user_id', session.user.id)
+          await supabase.from('products').update({ stock: previous.oldStock })
+            .eq('id', previous.id).eq('user_id', session.user.id)
         }
-        alert(`Could not update stock for ${line.product.name}: ${error.message}. No sale was recorded.`)
+        alert(`Could not update stock for ${product.name}: ${error.message}. No sale was recorded.`)
         return
       }
-      updatedProducts.push({ id: line.product.id, oldStock: line.product.stock, data })
+      updatedProducts.push({ id: product.id, oldStock: product.stock, data })
     }
 
     const { data: insertedSale, error: saleError } = await supabase
