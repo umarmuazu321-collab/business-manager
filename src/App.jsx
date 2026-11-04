@@ -651,17 +651,17 @@ function App() {
     message: '',
   })
 
-  const [products, setProducts] = useState(initialProducts)
+  const [products, setProducts] = useState([])
   const [productLoading, setProductLoading] = useState(false)
 
-  const [sales, setSales] = useState(initialSales)
+  const [sales, setSales] = useState([])
   const [salesLoading, setSalesLoading] = useState(false)
 
-  const [customers, setCustomers] = useState(initialCustomers)
+  const [customers, setCustomers] = useState([])
   const [customerLoading, setCustomerLoading] = useState(false)
-  const [debts, setDebts] = useState(initialDebts)
+  const [debts, setDebts] = useState([])
   const [debtLoading, setDebtLoading] = useState(false)
-  const [expenses, setExpenses] = useState(initialExpenses)
+  const [expenses, setExpenses] = useState([])
   const [expenseLoading, setExpenseLoading] = useState(false)
 
   const [search, setSearch] = useState('')
@@ -875,37 +875,6 @@ function App() {
         return
       }
 
-      if (data.length === 0) {
-        const seedSales = initialSales.map((sale) => ({
-          customer: sale.customer,
-          product: sale.product,
-          amount: sale.amount,
-          status: sale.status,
-        }))
-
-        const {
-          data: insertedSales,
-          error: seedError,
-        } = await supabase
-          .from('sales')
-          .insert(seedSales)
-          .select('id, customer, product, amount, status, created_at')
-
-        if (seedError) {
-          await recoverFromDataError(
-            seedError,
-            'Could not create starter sales',
-          )
-
-          setSalesLoading(false)
-          return
-        }
-
-        setSales(insertedSales.map(mapSale))
-        setSalesLoading(false)
-        return
-      }
-
       setSales(data.map(mapSale))
       setSalesLoading(false)
     }
@@ -933,36 +902,6 @@ function App() {
 
       if (error) {
         await recoverFromDataError(error, 'Could not load customers')
-        setCustomerLoading(false)
-        return
-      }
-
-      if (data.length === 0) {
-        const seedCustomers = initialCustomers.map((customer) => ({
-          name: customer.name,
-          phone: customer.phone,
-          address: customer.address,
-        }))
-
-        const {
-          data: insertedCustomers,
-          error: seedError,
-        } = await supabase
-          .from('customers')
-          .insert(seedCustomers)
-          .select('id, name, phone, address, created_at')
-
-        if (seedError) {
-          await recoverFromDataError(
-            seedError,
-            'Could not create starter customers',
-          )
-
-          setCustomerLoading(false)
-          return
-        }
-
-        setCustomers(insertedCustomers.map(mapCustomer))
         setCustomerLoading(false)
         return
       }
@@ -998,41 +937,6 @@ function App() {
         return
       }
 
-      if (data.length === 0) {
-        const seedDebts = initialDebts.map((debt) => ({
-          customer: debt.customer,
-          item: debt.item,
-          total: debt.total,
-          paid: debt.paid,
-        }))
-
-        const {
-          data: insertedDebts,
-          error: seedError,
-        } = await supabase
-          .from('debts')
-          .insert(seedDebts)
-          .select('id, customer, item, total, paid, created_at')
-
-        if (seedError) {
-          console.error(
-            'Could not create starter debts:',
-            seedError,
-          )
-
-          setAuthError(
-            `Could not create starter debts: ${seedError.message}`,
-          )
-
-          setDebtLoading(false)
-          return
-        }
-
-        setDebts(insertedDebts.map(mapDebt))
-        setDebtLoading(false)
-        return
-      }
-
       setDebts(data.map(mapDebt))
       setDebtLoading(false)
     }
@@ -1060,37 +964,6 @@ function App() {
 
       if (error) {
         await recoverFromDataError(error, 'Could not load expenses')
-        setExpenseLoading(false)
-        return
-      }
-
-      if (data.length === 0) {
-        const seedExpenses = initialExpenses.map((expense) => ({
-          name: expense.name,
-          category: expense.category,
-          amount: expense.amount,
-          date: expense.date,
-        }))
-
-        const {
-          data: insertedExpenses,
-          error: seedError,
-        } = await supabase
-          .from('expenses')
-          .insert(seedExpenses)
-          .select('id, name, category, amount, date, created_at')
-
-        if (seedError) {
-          await recoverFromDataError(
-            seedError,
-            'Could not create starter expenses',
-          )
-
-          setExpenseLoading(false)
-          return
-        }
-
-        setExpenses(insertedExpenses.map(mapExpense))
         setExpenseLoading(false)
         return
       }
