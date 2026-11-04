@@ -3391,12 +3391,18 @@ function SalesCartForm({ products, saleData, handleSaleChange, handleRecordSale 
 }
 
 function ReceiptModal({ receipt, business, onClose }) {
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
   useEffect(() => {
     window.history.pushState({ receiptOpen: true }, '')
-    const handleBack = () => onClose()
+    const handleBack = () => onCloseRef.current()
     window.addEventListener('popstate', handleBack)
     return () => window.removeEventListener('popstate', handleBack)
-  }, [onClose])
+  }, [receipt.id])
 
   const handleReceiptBack = () => window.history.back()
   const formatMoney = (value) => '₦' + Number(value || 0).toLocaleString('en-NG')
