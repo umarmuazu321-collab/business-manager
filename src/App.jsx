@@ -840,7 +840,7 @@ function App() {
 
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, category, purchase_price, price, stock, created_at')
+        .select('id, name, category, purchase_price, wholesale_price, base_unit, price, stock, created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: true })
 
@@ -1022,7 +1022,7 @@ function App() {
               address: defaultBusinessSettings.address,
             })
             .select(
-              'id, business_name, owner_name, phone, email, address, created_at, updated_at',
+              'id, business_name, owner_name, business_type, phone, email, address, created_at, updated_at',
             )
             .single()
 
@@ -1239,7 +1239,7 @@ function App() {
       })
       .eq('user_id', session.user.id)
       .select(
-        'id, business_name, owner_name, phone, email, address, created_at, updated_at',
+        'id, business_name, owner_name, business_type, phone, email, address, created_at, updated_at',
       )
       .single()
 
@@ -1353,6 +1353,8 @@ function App() {
       formData.stock === '' ||
       !Number.isFinite(purchasePrice) ||
       purchasePrice < 0 ||
+      !Number.isFinite(Number(formData.wholesalePrice || 0)) ||
+      Number(formData.wholesalePrice || 0) < 0 ||
       !Number.isFinite(price) ||
       price < 0 ||
       !Number.isFinite(stock) ||
@@ -1383,7 +1385,7 @@ function App() {
       : await supabase
           .from('products')
           .insert(productValues)
-          .select('id, name, category, purchase_price, price, stock')
+          .select('id, name, category, purchase_price, wholesale_price, base_unit, price, stock')
           .single()
 
     const { data, error } = result
@@ -1443,7 +1445,7 @@ function App() {
       .update({ stock: product.stock + quantity })
       .eq('id', product.id)
       .eq('user_id', session.user.id)
-      .select('id, name, category, purchase_price, price, stock')
+      .select('id, name, category, purchase_price, wholesale_price, base_unit, price, stock')
       .single()
 
     if (error) {
@@ -1553,7 +1555,7 @@ function App() {
       })
       .eq('id', selectedProduct.id)
       .eq('user_id', session.user.id)
-      .select('id, name, category, price, stock')
+      .select('id, name, category, purchase_price, wholesale_price, base_unit, price, stock')
       .single()
 
     if (stockError) {
@@ -2984,7 +2986,7 @@ function ProductsPage({
               className="delete-button"
               onClick={() => {
                 setEditingProductId(null)
-                setFormData({ name: '', category: '', purchasePrice: '', price: '', stock: '' })
+                setFormData({ name: '', category: '', purchasePrice: '', wholesalePrice: '', baseUnit: 'piece', price: '', stock: '' })
                 setShowForm(false)
               }}
             >
