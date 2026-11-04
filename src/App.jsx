@@ -2962,7 +2962,9 @@ function ProductsPage({
           <h2>Products</h2>
 
           <p>
-            Manage your products, prices and stock.
+            Manage your products, prices and stock.{' '}
+            {products.filter((product) => product.stock <= 7).length > 0 &&
+              `Low stock: ${products.filter((product) => product.stock <= 7).length} product(s)`}
           </p>
         </div>
 
@@ -3129,7 +3131,10 @@ function ProductsPage({
                 </div>
 
                 <div className="product-price">
-                  ₦{product.price.toLocaleString()}
+                  <strong>Sell: ₦{product.price.toLocaleString()}</strong>
+                  <span className="product-cost">
+                    Buy: ₦{product.purchasePrice.toLocaleString()}
+                  </span>
                 </div>
 
                 <div
